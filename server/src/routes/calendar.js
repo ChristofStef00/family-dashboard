@@ -172,9 +172,16 @@ router.delete('/connections/:id', requireAdmin, (req, res) => {
 router.get('/events', (req, res) => {
   const start = req.query.start || new Date().toISOString();
   const end = req.query.end || new Date(Date.now() + 35 * 24 * 3600 * 1000).toISOString();
+  // LEFT JOIN so shared events (no member) come through; COALESCE picks the
+  // event's stored color, then the owning member's color, then a neutral default.
   const rows = db.prepare(`
-    SELECT e.*, m.color, m.name AS member_name, m.emoji
-    FROM calendar_events e JOIN family_members m ON m.id = e.member_id
+    SELECT e.id, e.member_id, e.calendar_id, e.title, e.description, e.location,
+           e.start_time, e.end_time, e.all_day, e.updated_at,
+           COALESCE(e.color, m.color, '#9ca3af') AS color,
+           m.name  AS member_name,
+           m.emoji AS emoji
+    FROM calendar_events e
+    LEFT JOIN family_members m ON m.id = e.member_id
     WHERE e.end_time >= ? AND e.start_time <= ?
     ORDER BY e.start_time
   `).all(start, end);

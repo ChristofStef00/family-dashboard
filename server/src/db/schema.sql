@@ -25,9 +25,11 @@ CREATE TABLE IF NOT EXISTS calendar_tokens (
   UNIQUE (member_id, email)
 );
 
+-- member_id is nullable: events from "shared" ICS subscriptions (no owner)
+-- store NULL here and the row's `color` column carries their hue instead.
 CREATE TABLE IF NOT EXISTS calendar_events (
   id            TEXT PRIMARY KEY,
-  member_id     INTEGER NOT NULL,
+  member_id     INTEGER,
   calendar_id   TEXT    NOT NULL,
   title         TEXT    NOT NULL,
   description   TEXT,
@@ -35,6 +37,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   start_time    TEXT    NOT NULL,
   end_time      TEXT    NOT NULL,
   all_day       INTEGER NOT NULL DEFAULT 0,
+  color         TEXT,                              -- per-event override; falls back to member.color, then to a neutral default
   updated_at    TEXT    NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (member_id) REFERENCES family_members(id) ON DELETE CASCADE
 );
@@ -46,11 +49,15 @@ CREATE INDEX IF NOT EXISTS idx_events_calendar ON calendar_events(calendar_id);
 -- Outlook ICS export, etc.). Events flow into calendar_events with a
 -- composite id of "ics:<sub_id>:<vevent_uid>" so they don't collide with
 -- OAuth-sourced events.
+-- member_id is nullable. If set, events render in that kid's color on the
+-- kiosk. If null (a "shared" calendar — household events, school holidays,
+-- etc.), the subscription's own `color` is used for every event.
 CREATE TABLE IF NOT EXISTS ics_subscriptions (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  member_id       INTEGER NOT NULL,
+  member_id       INTEGER,
   name            TEXT    NOT NULL,
   url             TEXT    NOT NULL,
+  color           TEXT,                                 -- hex; used when member_id IS NULL
   active          INTEGER NOT NULL DEFAULT 1,
   last_synced_at  TEXT,
   last_error      TEXT,

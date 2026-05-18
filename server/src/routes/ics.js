@@ -11,27 +11,31 @@ function parseRow(row) {
 }
 
 router.get('/subscriptions', (_req, res) => {
+  // LEFT JOIN: shared subs (member_id IS NULL) still come back.
   const rows = db.prepare(`
     SELECT s.*,
            m.name  AS member_name,
            m.color AS member_color,
            m.emoji AS member_emoji
     FROM ics_subscriptions s
-    JOIN family_members m ON m.id = s.member_id
+    LEFT JOIN family_members m ON m.id = s.member_id
     ORDER BY s.id
   `).all().map(parseRow);
   res.json(rows);
 });
 
 router.post('/subscriptions', requireAdmin, async (req, res) => {
-  const { member_id, name, url, active = true } = req.body || {};
-  if (!member_id || !name || !url) {
-    return res.status(400).json({ error: 'member_id, name, and url are required' });
+  const { member_id = null, name, url, color = null, active = true } = req.body || {};
+  if (!name || !url) {
+    return res.status(400).json({ error: 'name and url are required' });
   }
+  // Shared (no member) subs must have a color so events have something to render with.
+  const memberIdInt = member_id ? Number(member_id) : null;
+  const finalColor  = memberIdInt ? null : (color || '#9ca3af');
   const info = db.prepare(`
-    INSERT INTO ics_subscriptions (member_id, name, url, active)
-    VALUES (?, ?, ?, ?)
-  `).run(Number(member_id), name, url, active ? 1 : 0);
+    INSERT INTO ics_subscriptions (member_id, name, url, color, active)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(memberIdInt, name, url, finalColor, active ? 1 : 0);
   const row = parseRow(
     db.prepare('SELECT * FROM ics_subscriptions WHERE id = ?').get(info.lastInsertRowid)
   );
@@ -50,15 +54,19 @@ router.patch('/subscriptions/:id', requireAdmin, async (req, res) => {
   const existing = db.prepare('SELECT * FROM ics_subscriptions WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const next = { ...existing, ...req.body };
+  const memberIdInt = next.member_id ? Number(next.member_id) : null;
+  const finalColor  = memberIdInt ? null : (next.color || '#9ca3af');
   db.prepare(`
     UPDATE ics_subscriptions
-    SET member_id = ?, name = ?, url = ?, active = ?
+    SET member_id = ?, name = ?, url = ?, color = ?, active = ?
     WHERE id = ?
-  `).run(Number(next.member_id), next.name, next.url, next.active ? 1 : 0, id);
+  `).run(memberIdInt, next.name, next.url, finalColor, next.active ? 1 : 0, id);
   const row = parseRow(db.prepare('SELECT * FROM ics_subscriptions WHERE id = ?').get(id));
-  if (row.active && (existing.url !== row.url || existing.member_id !== row.member_id)) {
-    // URL or owner changed — re-sync (best effort).
-    try { await syncOneIcs(row); } catch (_e) { /* error captured in last_error */ }
+  const ownerChanged = existing.member_id !== row.member_id;
+  const colorChanged = existing.color !== row.color;
+  if (row.active && (existing.url !== row.url || ownerChanged || colorChanged)) {
+    // Any meaningful change → re-sync so events repaint immediately.
+    try { await syncOneIcs(row); } catch (_e) { /* captured in last_error */ }
   }
   res.json(parseRow(db.prepare('SELECT * FROM ics_subscriptions WHERE id = ?').get(id)));
 });

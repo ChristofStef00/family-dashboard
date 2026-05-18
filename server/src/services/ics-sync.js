@@ -2,15 +2,17 @@ import ical from 'node-ical';
 import { db } from '../db/index.js';
 
 const upsertEvent = db.prepare(`
-  INSERT INTO calendar_events (id, member_id, calendar_id, title, description, location, start_time, end_time, all_day, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  INSERT INTO calendar_events (id, member_id, calendar_id, title, description, location, start_time, end_time, all_day, color, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   ON CONFLICT(id) DO UPDATE SET
+    member_id   = excluded.member_id,
     title       = excluded.title,
     description = excluded.description,
     location    = excluded.location,
     start_time  = excluded.start_time,
     end_time    = excluded.end_time,
     all_day     = excluded.all_day,
+    color       = excluded.color,
     updated_at  = datetime('now')
 `);
 
@@ -123,13 +125,19 @@ export async function syncOneIcs(sub) {
     `SELECT id FROM calendar_events WHERE calendar_id = ?`
   ).all(calendarId).map(r => r.id);
 
+  // When the subscription has no owner, every event gets the sub's color
+  // baked in so a future member-color change doesn't accidentally repaint
+  // shared events. Owned subs leave color=NULL and inherit member.color.
+  const eventColor = sub.member_id ? null : (sub.color || null);
+
   const tx = db.transaction(() => {
     for (const e of incoming) {
       upsertEvent.run(
-        e.id, sub.member_id, calendarId,
+        e.id, sub.member_id || null, calendarId,
         e.title, e.description, e.location,
         e.start.toISOString(), e.end.toISOString(),
-        e.allDay ? 1 : 0
+        e.allDay ? 1 : 0,
+        eventColor
       );
     }
     const stale = existing.filter(id => !incomingIds.has(id));

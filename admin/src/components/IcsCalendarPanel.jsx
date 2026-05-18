@@ -109,23 +109,25 @@ export default function IcsCalendarPanel() {
 
       <ul className="flex flex-col gap-2 mt-3">
         {subs.map(s => {
-          const member = members.find(m => m.id === s.member_id);
+          const shared = !s.member_id;
+          const chipColor = shared ? (s.color || '#9ca3af') : s.member_color;
+          const chipEmoji = shared ? '📅' : s.member_emoji;
           return (
             <li key={s.id} className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex items-center gap-3">
               <span
                 className="h-9 w-9 rounded-full flex items-center justify-center text-lg shrink-0"
                 style={{
-                  backgroundColor: `${s.member_color}33`,
-                  border: `1px solid ${s.member_color}66`
+                  backgroundColor: `${chipColor}33`,
+                  border: `1px solid ${chipColor}66`
                 }}
-                title={member?.name || ''}
+                title={shared ? 'Shared (no owner)' : (s.member_name || '')}
               >
-                {s.member_emoji}
+                {chipEmoji}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm truncate">{s.name}</div>
                 <div className="text-fg/50 text-xs truncate">
-                  {s.member_name} · synced {relativeTime(s.last_synced_at)}
+                  {shared ? 'Shared' : s.member_name} · synced {relativeTime(s.last_synced_at)}
                   {!s.active && ' · paused'}
                 </div>
                 {s.last_error && (
@@ -148,36 +150,69 @@ export default function IcsCalendarPanel() {
 }
 
 function IcsForm({ sub, members, onSave, onCancel }) {
-  const [memberId, setMemberId] = useState(sub?.member_id ?? (members[0]?.id || ''));
-  const [name,     setName]     = useState(sub?.name || '');
-  const [url,      setUrl]      = useState(sub?.url  || '');
+  // memberId = '' means "shared (no owner)". A real member id is a number.
+  const initialMember = sub
+    ? (sub.member_id ? String(sub.member_id) : '')
+    : (members[0]?.id ? String(members[0].id) : '');
+  const [memberId, setMemberId] = useState(initialMember);
+  const [name,     setName]     = useState(sub?.name  || '');
+  const [url,      setUrl]      = useState(sub?.url   || '');
+  const [color,    setColor]    = useState(sub?.color || '#9ca3af');
   const [active,   setActive]   = useState(sub?.active ?? true);
+
+  const isShared = memberId === '';
 
   function submit() {
     onSave({
-      member_id: Number(memberId),
+      member_id: isShared ? null : Number(memberId),
       name:      name.trim(),
       url:       url.trim(),
+      color:     isShared ? color : null,
       active
     });
   }
 
-  const canSave = memberId && name.trim() && url.trim() && /^https?:\/\//i.test(url.trim());
+  const canSave = name.trim() && url.trim() && /^https?:\/\//i.test(url.trim());
 
   return (
     <div className="rounded-2xl bg-white/[0.06] border border-white/15 p-4 flex flex-col gap-4">
-      <Field label="Member" hint="Events from this feed render in this member's color on the kiosk.">
+      <Field label="Member" hint="Owned feeds render in that kid's color. Pick 'Shared' for a household calendar (school holidays, family events, etc).">
         <select
           value={memberId}
           onChange={e => setMemberId(e.target.value)}
           className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-white/30 text-sm cursor-pointer w-full"
         >
-          {members.length === 0 && <option value="">(no members yet)</option>}
+          <option value="">📅 Shared (no member)</option>
           {members.map(m => (
-            <option key={m.id} value={m.id}>{m.name}</option>
+            <option key={m.id} value={m.id}>{m.emoji} {m.name}</option>
           ))}
         </select>
       </Field>
+
+      {isShared && (
+        <Field label="Color" hint="Hue used for every event from this shared feed on the kiosk calendar.">
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={color}
+              onChange={e => setColor(e.target.value)}
+              className="h-10 w-16 rounded-lg bg-white/5 border border-white/10 cursor-pointer"
+            />
+            <input
+              type="text"
+              value={color}
+              onChange={e => setColor(e.target.value)}
+              placeholder="#9ca3af"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-white/30 text-sm font-mono"
+            />
+            <span
+              className="h-10 w-10 rounded-full border border-white/15"
+              style={{ backgroundColor: color }}
+              title="preview"
+            />
+          </div>
+        </Field>
+      )}
 
       <Field label="Display name" hint="e.g. 'Renley school', 'Family events'.">
         <input

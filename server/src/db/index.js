@@ -48,6 +48,9 @@ export function migrate() {
   // streak_rewards v3: drop the unused reward_title/reward_description columns
   // (streaks are now just bonus-point boosts; no reward label).
   migrateStreakRewardsV3();
+  // calendar_events + ics_subscriptions: make member_id nullable and add a
+  // `color` column so "shared" calendars (no owner) can render correctly.
+  migrateCalendarSharedCalendars();
   // Indexes that depend on columns added by ensureColumn must be created here.
   db.exec('CREATE INDEX IF NOT EXISTS idx_recipe_cache_cookbook ON recipe_cache(cookbook_slug)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_chores_category       ON chores(category)');
@@ -128,6 +131,81 @@ function migrateStreakRewardsV3() {
     CREATE INDEX IF NOT EXISTS idx_streak_rewards_routine ON streak_rewards(routine_id);
   `);
   console.log('[migrate] streak_rewards stripped of legacy reward_title/reward_description columns');
+}
+
+function migrateCalendarSharedCalendars() {
+  // ─── calendar_events: drop NOT NULL on member_id, add `color` column. ──
+  const evCols = db.prepare('PRAGMA table_info(calendar_events)').all();
+  if (evCols.length > 0) {
+    const memberCol = evCols.find(c => c.name === 'member_id');
+    const hasColor  = evCols.some(c => c.name === 'color');
+    const needsRebuild = memberCol && memberCol.notnull === 1;
+    if (needsRebuild) {
+      db.exec(`
+        CREATE TABLE calendar_events_new (
+          id            TEXT PRIMARY KEY,
+          member_id     INTEGER,
+          calendar_id   TEXT    NOT NULL,
+          title         TEXT    NOT NULL,
+          description   TEXT,
+          location      TEXT,
+          start_time    TEXT    NOT NULL,
+          end_time      TEXT    NOT NULL,
+          all_day       INTEGER NOT NULL DEFAULT 0,
+          color         TEXT,
+          updated_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (member_id) REFERENCES family_members(id) ON DELETE CASCADE
+        );
+        INSERT INTO calendar_events_new
+          (id, member_id, calendar_id, title, description, location, start_time, end_time, all_day, color, updated_at)
+        SELECT id, member_id, calendar_id, title, description, location, start_time, end_time, all_day, NULL, updated_at
+        FROM calendar_events;
+        DROP TABLE calendar_events;
+        ALTER TABLE calendar_events_new RENAME TO calendar_events;
+        CREATE INDEX IF NOT EXISTS idx_events_start    ON calendar_events(start_time);
+        CREATE INDEX IF NOT EXISTS idx_events_member   ON calendar_events(member_id);
+        CREATE INDEX IF NOT EXISTS idx_events_calendar ON calendar_events(calendar_id);
+      `);
+      console.log('[migrate] calendar_events: member_id nullable + color column');
+    } else if (!hasColor) {
+      // Already nullable (newer install) but missing the color column — additive fix.
+      db.exec('ALTER TABLE calendar_events ADD COLUMN color TEXT');
+    }
+  }
+
+  // ─── ics_subscriptions: same treatment if it exists. ───────────────────
+  const subCols = db.prepare('PRAGMA table_info(ics_subscriptions)').all();
+  if (subCols.length > 0) {
+    const memberCol = subCols.find(c => c.name === 'member_id');
+    const hasColor  = subCols.some(c => c.name === 'color');
+    const needsRebuild = memberCol && memberCol.notnull === 1;
+    if (needsRebuild) {
+      db.exec(`
+        CREATE TABLE ics_subscriptions_new (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          member_id       INTEGER,
+          name            TEXT    NOT NULL,
+          url             TEXT    NOT NULL,
+          color           TEXT,
+          active          INTEGER NOT NULL DEFAULT 1,
+          last_synced_at  TEXT,
+          last_error      TEXT,
+          created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (member_id) REFERENCES family_members(id) ON DELETE CASCADE
+        );
+        INSERT INTO ics_subscriptions_new
+          (id, member_id, name, url, color, active, last_synced_at, last_error, created_at)
+        SELECT id, member_id, name, url, NULL, active, last_synced_at, last_error, created_at
+        FROM ics_subscriptions;
+        DROP TABLE ics_subscriptions;
+        ALTER TABLE ics_subscriptions_new RENAME TO ics_subscriptions;
+        CREATE INDEX IF NOT EXISTS idx_ics_subscriptions_member ON ics_subscriptions(member_id);
+      `);
+      console.log('[migrate] ics_subscriptions: member_id nullable + color column');
+    } else if (!hasColor) {
+      db.exec('ALTER TABLE ics_subscriptions ADD COLUMN color TEXT');
+    }
+  }
 }
 
 migrate();
