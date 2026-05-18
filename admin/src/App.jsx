@@ -12,6 +12,7 @@ import LocationPanel from './components/LocationPanel.jsx';
 import StreakRewardPanel from './components/StreakRewardPanel.jsx';
 import VacationPanel from './components/VacationPanel.jsx';
 import ActivityLogPanel from './components/ActivityLogPanel.jsx';
+import IcsCalendarPanel from './components/IcsCalendarPanel.jsx';
 
 const SECTION_KEY = 'fd_admin_section';
 
@@ -112,6 +113,7 @@ export default function App() {
           <>
             <LocationPanel />
             <VacationPanel />
+            <IcsCalendarPanel />
             <CalendarSetup />
             <MealieSettings />
           </>

@@ -70,6 +70,13 @@ export const api = {
   updateStreakReward:   (id, body) => request(`/api/streaks/rewards/${id}`, { method: 'PATCH',  body: JSON.stringify(body) }),
   deleteStreakReward:   (id)       => request(`/api/streaks/rewards/${id}`, { method: 'DELETE' }),
 
+  // iCal/ICS calendar subscriptions
+  icsSubscriptions:      () => request('/api/ics/subscriptions'),
+  createIcsSubscription: (body)     => request('/api/ics/subscriptions',       { method: 'POST',  body: JSON.stringify(body) }),
+  updateIcsSubscription: (id, body) => request(`/api/ics/subscriptions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteIcsSubscription: (id)       => request(`/api/ics/subscriptions/${id}`, { method: 'DELETE' }),
+  syncIcs:               ()         => request('/api/ics/sync', { method: 'POST' }),
+
   // Activity log (read-only; unifies chore/routine/streak/redemption events).
   activity: ({ limit = 200, member_id = null, type = null } = {}) => {
     const qs = new URLSearchParams();

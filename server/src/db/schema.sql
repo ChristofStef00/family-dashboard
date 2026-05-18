@@ -40,6 +40,24 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_start ON calendar_events(start_time);
 CREATE INDEX IF NOT EXISTS idx_events_member ON calendar_events(member_id);
+CREATE INDEX IF NOT EXISTS idx_events_calendar ON calendar_events(calendar_id);
+
+-- Lightweight read-only calendar feeds (Google's "secret iCal address",
+-- Outlook ICS export, etc.). Events flow into calendar_events with a
+-- composite id of "ics:<sub_id>:<vevent_uid>" so they don't collide with
+-- OAuth-sourced events.
+CREATE TABLE IF NOT EXISTS ics_subscriptions (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  member_id       INTEGER NOT NULL,
+  name            TEXT    NOT NULL,
+  url             TEXT    NOT NULL,
+  active          INTEGER NOT NULL DEFAULT 1,
+  last_synced_at  TEXT,
+  last_error      TEXT,
+  created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (member_id) REFERENCES family_members(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_ics_subscriptions_member ON ics_subscriptions(member_id);
 
 CREATE TABLE IF NOT EXISTS chores (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,

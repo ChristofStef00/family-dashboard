@@ -26,6 +26,7 @@ import bonusesRouter from './routes/bonuses.js';
 import goalsRouter from './routes/goals.js';
 import vacationsRouter from './routes/vacations.js';
 import activityRouter from './routes/activity.js';
+import icsRouter from './routes/ics.js';
 import './services/cron.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,6 +61,7 @@ app.use('/api/bonuses', bonusesRouter);
 app.use('/api/goals', goalsRouter);
 app.use('/api/vacations', vacationsRouter);
 app.use('/api/activity', activityRouter);
+app.use('/api/ics', icsRouter);
 app.use('/api/ha', haRouter);
 
 const clientDist = path.resolve(__dirname, '../../client/dist');
