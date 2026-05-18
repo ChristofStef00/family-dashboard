@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
 # Family Dashboard — Raspberry Pi kiosk setup
 #
-# Idempotent: re-running is safe. Targets Pi OS Bookworm with the X11 session.
-# If you're on Wayland (Pi 5 default), switch first:
-#   sudo raspi-config  →  Advanced Options  →  Wayland  →  X11  →  reboot
+# Idempotent: re-running is safe. Tested on Pi OS Trixie (Wayland default)
+# and Bookworm (X11). Writes kiosk autostart files for whichever
+# compositor is installed:
+#   • Wayfire (Pi 4 / Trixie Wayland)  → ~/.config/wayfire.ini
+#   • labwc   (Pi 5 / Trixie Wayland)  → ~/.config/labwc/autostart
+#   • LXDE-pi (X11 / Bookworm + after raspi-config switch to X11)
+#                                      → ~/.config/lxsession/LXDE-pi/autostart
+#   • XDG fallback                     → ~/.config/autostart/*.desktop
 #
 # What this does:
 #   1. Installs Node.js 20 + build tools (better-sqlite3 needs them)
-#   2. Installs Chromium + unclutter (hides the mouse cursor)
+#   2. Installs Chromium + unclutter
 #   3. Installs npm deps + builds client/dist + admin/dist
 #   4. Creates server/.env from the template if it's missing
 #   5. Registers a systemd service so the API starts on boot
-#   6. Configures LXDE autostart so Chromium launches in kiosk mode
-#   7. Disables screen blanking / DPMS
+#   6. Writes kiosk autostart entries for every detected compositor
+#   7. Disables screen blanking / DPMS where possible
 
 set -euo pipefail
 
@@ -108,18 +113,61 @@ fi
 
 # ───── 5. Chromium kiosk autostart ──────────────────────────────────────
 step "Configuring Chromium kiosk autostart"
-AUTOSTART_DIR="${HOME}/.config/lxsession/LXDE-pi"
-mkdir -p "$AUTOSTART_DIR"
-# Detect chromium binary (Bookworm uses chromium-browser; some images use chromium).
-CHROMIUM_BIN=$(command -v chromium-browser || command -v chromium || echo chromium-browser)
-cat > "$AUTOSTART_DIR/autostart" <<EOF
+# Detect chromium binary (Trixie ships `chromium`; older Bookworm ships `chromium-browser`).
+CHROMIUM_BIN=$(command -v chromium-browser || command -v chromium || echo chromium)
+CHROMIUM_ARGS="--kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 --disable-pinch --overscroll-history-navigation=0 --no-first-run --start-fullscreen ${SERVER_URL}"
+KIOSK_TAG="family-dashboard-kiosk"
+
+# ─── X11 / LXDE-pi (legacy Bookworm + Trixie-after-raspi-config-X11) ────
+LXDE_AUTOSTART="${HOME}/.config/lxsession/LXDE-pi/autostart"
+mkdir -p "$(dirname "$LXDE_AUTOSTART")"
+cat > "$LXDE_AUTOSTART" <<EOF
 @xset s off
 @xset -dpms
 @xset s noblank
 @unclutter -idle 0
-@${CHROMIUM_BIN} --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 --disable-pinch --overscroll-history-navigation=0 --no-first-run --start-fullscreen ${SERVER_URL}
+@${CHROMIUM_BIN} ${CHROMIUM_ARGS}
 EOF
-ok "Kiosk autostart written to ${AUTOSTART_DIR}/autostart"
+ok "X11 autostart  → ${LXDE_AUTOSTART}"
+
+# ─── wayfire (Pi 4 default on Trixie Wayland) ───────────────────────────
+if command -v wayfire >/dev/null 2>&1; then
+  WAYFIRE_INI="${HOME}/.config/wayfire.ini"
+  mkdir -p "$(dirname "$WAYFIRE_INI")"
+  touch "$WAYFIRE_INI"
+  # Ensure [autostart] section exists, then idempotently add our entry.
+  grep -q '^\[autostart\]' "$WAYFIRE_INI" || printf '\n[autostart]\n' >> "$WAYFIRE_INI"
+  sed -i "/^${KIOSK_TAG}[[:space:]]*=/d" "$WAYFIRE_INI"
+  sed -i "/^\[autostart\]/a ${KIOSK_TAG} = ${CHROMIUM_BIN} ${CHROMIUM_ARGS}" "$WAYFIRE_INI"
+  ok "Wayfire autostart → ${WAYFIRE_INI}"
+fi
+
+# ─── labwc (Pi 5 default on Trixie Wayland) ─────────────────────────────
+if command -v labwc >/dev/null 2>&1; then
+  LABWC_AUTO="${HOME}/.config/labwc/autostart"
+  mkdir -p "$(dirname "$LABWC_AUTO")"
+  if [ -f "$LABWC_AUTO" ]; then
+    # Strip any prior kiosk line, keep rest of file intact.
+    sed -i "/${KIOSK_TAG}/d" "$LABWC_AUTO"
+  else
+    echo '#!/bin/sh' > "$LABWC_AUTO"
+  fi
+  echo "${CHROMIUM_BIN} ${CHROMIUM_ARGS} &  # ${KIOSK_TAG}" >> "$LABWC_AUTO"
+  chmod +x "$LABWC_AUTO"
+  ok "labwc autostart  → ${LABWC_AUTO}"
+fi
+
+# ─── XDG fallback (works for any compliant session) ─────────────────────
+XDG_AUTOSTART="${HOME}/.config/autostart/${KIOSK_TAG}.desktop"
+mkdir -p "$(dirname "$XDG_AUTOSTART")"
+cat > "$XDG_AUTOSTART" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Family Dashboard Kiosk
+Exec=${CHROMIUM_BIN} ${CHROMIUM_ARGS}
+X-GNOME-Autostart-enabled=true
+EOF
+ok "XDG autostart  → ${XDG_AUTOSTART}"
 
 # ───── 6. Disable screen blanking (belt + braces) ───────────────────────
 step "Disabling screen blanking via raspi-config"
