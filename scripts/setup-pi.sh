@@ -40,9 +40,19 @@ if [ "$need_node" -eq 1 ]; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
   sudo apt-get install -y nodejs
 fi
+# Pi OS Trixie ships Chromium as the `chromium` package; older Bookworm
+# images still call it `chromium-browser`. Pick whichever apt knows about.
+if apt-cache show chromium >/dev/null 2>&1; then
+  CHROMIUM_PKG=chromium
+elif apt-cache show chromium-browser >/dev/null 2>&1; then
+  CHROMIUM_PKG=chromium-browser
+else
+  warn "Couldn't find a chromium package via apt — install one manually."
+  CHROMIUM_PKG=""
+fi
 sudo apt-get install -y --no-install-recommends \
   build-essential python3 git \
-  chromium-browser unclutter
+  ${CHROMIUM_PKG} unclutter
 ok "Node $(node -v)"
 
 # ───── 2. Install + build ────────────────────────────────────────────────
