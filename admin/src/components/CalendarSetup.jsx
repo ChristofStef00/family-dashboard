@@ -46,6 +46,23 @@ export default function CalendarSetup() {
     }
   }
 
+  async function connectShared(color) {
+    setError(null);
+    setBusy(true);
+    try {
+      const { url } = await api.startSharedOAuth(color);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      if (err instanceof HttpError && /not configured/i.test(err.message)) {
+        setError('Google OAuth is not configured. See setup steps below.');
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function syncNow() {
     setBusy(true);
     setSyncResult(null);
@@ -61,9 +78,14 @@ export default function CalendarSetup() {
   }
 
   const connectionsByMember = new Map();
+  const sharedConnections = [];
   for (const c of connections) {
-    if (!connectionsByMember.has(c.member_id)) connectionsByMember.set(c.member_id, []);
-    connectionsByMember.get(c.member_id).push(c);
+    if (c.member_id) {
+      if (!connectionsByMember.has(c.member_id)) connectionsByMember.set(c.member_id, []);
+      connectionsByMember.get(c.member_id).push(c);
+    } else {
+      sharedConnections.push(c);
+    }
   }
 
   return (
@@ -111,11 +133,11 @@ export default function CalendarSetup() {
                 {conns.length === 0 ? (
                   <div className="text-fg/40 text-sm mt-0.5">No calendar connected</div>
                 ) : (
-                  <ul className="mt-2 flex flex-col gap-2">
+                  <div className="mt-2 flex flex-col gap-2">
                     {conns.map(c => (
                       <ConnectionRow key={c.id} connection={c} onChange={refresh} />
                     ))}
-                  </ul>
+                  </div>
                 )}
               </div>
               <button
@@ -130,8 +152,98 @@ export default function CalendarSetup() {
         })}
       </ul>
 
+      <SharedConnections
+        connections={sharedConnections}
+        busy={busy}
+        onConnect={connectShared}
+        onChange={refresh}
+      />
+
       <SetupHelp />
     </div>
+  );
+}
+
+function SharedConnections({ connections, busy, onConnect, onChange }) {
+  const [color, setColor] = useState('#6366f1');
+  const [updating, setUpdating] = useState(null);   // connection id mid-color-update
+  const [error, setError] = useState(null);
+
+  async function recolor(c, newColor) {
+    setUpdating(c.id);
+    setError(null);
+    try {
+      await api.updateConnectionColor(c.id, newColor);
+      onChange();
+    } catch (e) { setError(e.message); }
+    finally { setUpdating(null); }
+  }
+
+  return (
+    <section className="rounded-2xl bg-white/[0.04] border border-white/10 p-4">
+      <header className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <h3 className="text-xl font-light tracking-tight">Shared Google Calendars</h3>
+          <p className="text-fg/50 text-sm mt-0.5">
+            Calendars not tied to a kid — household events, school holidays, etc. Each shared connection uses one color for all its events.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={color}
+            onChange={e => setColor(e.target.value)}
+            className="h-9 w-12 rounded-lg bg-white/5 border border-white/10 cursor-pointer"
+            title="Color for the new shared connection"
+          />
+          <button
+            onClick={() => onConnect(color)}
+            disabled={busy}
+            className="rounded-full px-3 py-1.5 bg-white/10 hover:bg-white/20 active:scale-95 disabled:opacity-40 text-xs uppercase tracking-widest font-medium transition"
+          >
+            Connect shared
+          </button>
+        </div>
+      </header>
+
+      {error && (
+        <div className="rounded-xl bg-rose-500/15 border border-rose-500/30 px-3 py-2 text-rose-200 text-sm mb-2">{error}</div>
+      )}
+
+      {connections.length === 0 ? (
+        <div className="text-fg/40 text-sm italic">No shared connections yet.</div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {connections.map(c => {
+            const chip = c.shared_color || c.color || '#9ca3af';
+            return (
+              <div key={c.id} className="rounded-xl bg-white/[0.03] border border-white/10 p-3 flex items-start gap-3">
+                <span
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-lg shrink-0"
+                  style={{ backgroundColor: `${chip}33`, border: `1px solid ${chip}66` }}
+                  title="Shared"
+                >
+                  📅
+                </span>
+                <div className="flex-1 min-w-0">
+                  <ConnectionRow connection={c} onChange={onChange} />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <input
+                    type="color"
+                    value={chip}
+                    onChange={e => recolor(c, e.target.value)}
+                    disabled={updating === c.id}
+                    className="h-9 w-12 rounded-lg bg-white/5 border border-white/10 cursor-pointer disabled:opacity-50"
+                    title="Change color"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 

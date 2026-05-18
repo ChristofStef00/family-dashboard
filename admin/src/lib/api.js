@@ -31,6 +31,13 @@ export const api = {
   deleteMember:  (id) => request(`/api/members/${id}`, { method: 'DELETE' }),
   connections:() => request('/api/calendar/connections'),
   startOAuth: (memberId) => request(`/api/calendar/oauth/start?member_id=${memberId}`),
+  startSharedOAuth: (color) =>
+    request(`/api/calendar/oauth/start?shared=1&color=${encodeURIComponent(color || '#9ca3af')}`),
+  updateConnectionColor: (id, color) =>
+    request(`/api/calendar/connections/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ color })
+    }),
   disconnect: (id) => request(`/api/calendar/connections/${id}`, { method: 'DELETE' }),
   listCalendars:    (connId) => request(`/api/calendar/connections/${connId}/calendars`),
   saveCalendarSelection: (connId, calendarIds) =>

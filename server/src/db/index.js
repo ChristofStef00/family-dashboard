@@ -173,6 +173,41 @@ function migrateCalendarSharedCalendars() {
     }
   }
 
+  // ─── calendar_tokens: same treatment (nullable member_id + color). ─────
+  const ctCols = db.prepare('PRAGMA table_info(calendar_tokens)').all();
+  if (ctCols.length > 0) {
+    const memberCol = ctCols.find(c => c.name === 'member_id');
+    const hasColor  = ctCols.some(c => c.name === 'color');
+    const needsRebuild = memberCol && memberCol.notnull === 1;
+    if (needsRebuild) {
+      db.exec(`
+        CREATE TABLE calendar_tokens_new (
+          id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+          member_id          INTEGER,
+          email              TEXT    NOT NULL,
+          access_token       TEXT    NOT NULL,
+          refresh_token      TEXT,
+          expiry             INTEGER NOT NULL,
+          scope              TEXT,
+          selected_calendars TEXT    NOT NULL DEFAULT '["primary"]',
+          color              TEXT,
+          created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (member_id) REFERENCES family_members(id) ON DELETE CASCADE,
+          UNIQUE (member_id, email)
+        );
+        INSERT INTO calendar_tokens_new
+          (id, member_id, email, access_token, refresh_token, expiry, scope, selected_calendars, color, created_at)
+        SELECT id, member_id, email, access_token, refresh_token, expiry, scope, selected_calendars, NULL, created_at
+        FROM calendar_tokens;
+        DROP TABLE calendar_tokens;
+        ALTER TABLE calendar_tokens_new RENAME TO calendar_tokens;
+      `);
+      console.log('[migrate] calendar_tokens: member_id nullable + color column');
+    } else if (!hasColor) {
+      db.exec('ALTER TABLE calendar_tokens ADD COLUMN color TEXT');
+    }
+  }
+
   // ─── ics_subscriptions: same treatment if it exists. ───────────────────
   const subCols = db.prepare('PRAGMA table_info(ics_subscriptions)').all();
   if (subCols.length > 0) {

@@ -75,7 +75,7 @@ export default function ConnectionRow({ connection, onChange }) {
   const dirty = !setsEqual(selected, new Set(connection.selected_calendars || []));
 
   return (
-    <li className="rounded-2xl bg-white/[0.03] border border-white/10">
+    <div className="rounded-2xl bg-white/[0.03] border border-white/10">
       <div className="flex items-center gap-3 p-3">
         <span className="flex-1 truncate text-sm text-fg/80">{connection.email}</span>
         <span className="text-fg/40 text-xs uppercase tracking-widest hidden sm:inline">
@@ -150,7 +150,7 @@ export default function ConnectionRow({ connection, onChange }) {
           )}
         </div>
       )}
-    </li>
+    </div>
   );
 }
 

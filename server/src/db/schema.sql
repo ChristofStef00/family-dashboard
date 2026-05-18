@@ -11,15 +11,19 @@ CREATE TABLE IF NOT EXISTS family_members (
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+-- member_id is nullable. If set, events show in that kid's color on the kiosk.
+-- If null, the connection is "shared" (household / no owner) and `color`
+-- carries the hue every event from this token renders in.
 CREATE TABLE IF NOT EXISTS calendar_tokens (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-  member_id          INTEGER NOT NULL,
+  member_id          INTEGER,
   email              TEXT    NOT NULL,
   access_token       TEXT    NOT NULL,
   refresh_token      TEXT,
   expiry             INTEGER NOT NULL,
   scope              TEXT,
   selected_calendars TEXT    NOT NULL DEFAULT '["primary"]', -- JSON array of Google calendar IDs
+  color              TEXT,                                    -- used when member_id IS NULL
   created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (member_id) REFERENCES family_members(id) ON DELETE CASCADE,
   UNIQUE (member_id, email)
