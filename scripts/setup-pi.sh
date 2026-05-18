@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# Family Dashboard — Raspberry Pi kiosk setup
+#
+# Idempotent: re-running is safe. Targets Pi OS Bookworm with the X11 session.
+# If you're on Wayland (Pi 5 default), switch first:
+#   sudo raspi-config  →  Advanced Options  →  Wayland  →  X11  →  reboot
+#
+# What this does:
+#   1. Installs Node.js 20 + build tools (better-sqlite3 needs them)
+#   2. Installs Chromium + unclutter (hides the mouse cursor)
+#   3. Installs npm deps + builds client/dist + admin/dist
+#   4. Creates server/.env from the template if it's missing
+#   5. Registers a systemd service so the API starts on boot
+#   6. Configures LXDE autostart so Chromium launches in kiosk mode
+#   7. Disables screen blanking / DPMS
+
+set -euo pipefail
+
+APP_DIR="${APP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+SERVICE_NAME="family-dashboard"
+SERVER_URL="http://localhost:3000"
+
+step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
+ok()   { printf '\033[1;32m✓\033[0m  %s\n' "$*"; }
+warn() { printf '\033[1;33m!\033[0m  %s\n' "$*"; }
+
+if [ "${EUID}" -eq 0 ]; then
+  warn "Run this as your normal user (not root). It will sudo when needed."
+  exit 1
+fi
+
+# ───── 1. Node + build deps ─────────────────────────────────────────────
+step "Installing Node.js 20 and build tools"
+need_node=1
+if command -v node >/dev/null; then
+  major=$(node -v | sed 's/^v//' | cut -d. -f1)
+  [ "$major" -ge 20 ] && need_node=0
+fi
+if [ "$need_node" -eq 1 ]; then
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+fi
+sudo apt-get install -y --no-install-recommends \
+  build-essential python3 git \
+  chromium-browser unclutter
+ok "Node $(node -v)"
+
+# ───── 2. Install + build ────────────────────────────────────────────────
+step "Installing dependencies and building"
+cd "$APP_DIR"
+npm install
+npm run build
+ok "Built client/dist and admin/dist"
+
+# ───── 3. .env ──────────────────────────────────────────────────────────
+step "Configuring environment"
+if [ ! -f server/.env ]; then
+  cp server/.env.example server/.env
+  # Generate a real JWT secret on first install
+  RAND=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 32)
+  sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${RAND}|" server/.env
+  warn "server/.env created from template. Edit ADMIN_PIN and (optionally) Google/Mealie creds before going live."
+  warn "  ${APP_DIR}/server/.env"
+fi
+ok "Environment configured"
+
+# ───── 4. systemd service ───────────────────────────────────────────────
+step "Installing systemd service"
+sudo tee /etc/systemd/system/${SERVICE_NAME}.service >/dev/null <<EOF
+[Unit]
+Description=Family Dashboard server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${USER}
+WorkingDirectory=${APP_DIR}
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable ${SERVICE_NAME}
+sudo systemctl restart ${SERVICE_NAME}
+sleep 2
+if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
+  ok "Server is running at ${SERVER_URL}"
+else
+  warn "Service failed to start. Check:  sudo journalctl -u ${SERVICE_NAME} -n 50 --no-pager"
+fi
+
+# ───── 5. Chromium kiosk autostart ──────────────────────────────────────
+step "Configuring Chromium kiosk autostart"
+AUTOSTART_DIR="${HOME}/.config/lxsession/LXDE-pi"
+mkdir -p "$AUTOSTART_DIR"
+# Detect chromium binary (Bookworm uses chromium-browser; some images use chromium).
+CHROMIUM_BIN=$(command -v chromium-browser || command -v chromium || echo chromium-browser)
+cat > "$AUTOSTART_DIR/autostart" <<EOF
+@xset s off
+@xset -dpms
+@xset s noblank
+@unclutter -idle 0
+@${CHROMIUM_BIN} --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 --disable-pinch --overscroll-history-navigation=0 --no-first-run --start-fullscreen ${SERVER_URL}
+EOF
+ok "Kiosk autostart written to ${AUTOSTART_DIR}/autostart"
+
+# ───── 6. Disable screen blanking (belt + braces) ───────────────────────
+step "Disabling screen blanking via raspi-config"
+sudo raspi-config nonint do_blanking 1 >/dev/null 2>&1 \
+  && ok "Screen blanking disabled" \
+  || warn "raspi-config blanking off failed (non-fatal; @xset lines above also disable it)"
+
+# ───── Done ─────────────────────────────────────────────────────────────
+echo
+ok "Setup complete!"
+echo
+echo "Next steps:"
+echo "  1. Edit server/.env if you haven't yet:  nano ${APP_DIR}/server/.env"
+echo "  2. Reboot to launch the kiosk:           sudo reboot"
+echo "  3. Tail logs:                            sudo journalctl -u ${SERVICE_NAME} -f"
+echo "  4. Update later:                         cd ${APP_DIR} && ./scripts/update.sh"
+echo
+echo "From another device on the LAN:"
+echo "  Admin:    http://$(hostname -I | awk '{print $1}'):3000/admin"
+echo "  Display:  http://$(hostname -I | awk '{print $1}'):3000"

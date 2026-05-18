@@ -1,0 +1,19 @@
+{
+  "name": "family-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Family dashboard for Raspberry Pi kiosk + admin UI",
+  "workspaces": ["server", "client", "admin"],
+  "scripts": {
+    "dev": "concurrently -n server,client,admin -c green,cyan,magenta \"npm:dev:server\" \"npm:dev:client\" \"npm:dev:admin\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:client": "npm --workspace client run dev",
+    "dev:admin": "npm --workspace admin run dev",
+    "build": "npm --workspace client run build && npm --workspace admin run build",
+    "start": "npm --workspace server start",
+    "seed": "npm --workspace server run seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

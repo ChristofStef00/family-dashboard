@@ -1,0 +1,373 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RGB triplets so Tailwind alpha utilities (text-fg/40, bg-surface/10) keep working. */
+:root {
+  --bg-rgb: 250 249 246;        /* warm off-white */
+  --fg-rgb: 26 26 31;
+  --surface-rgb: 0 0 0;          /* dark on light surface */
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --card-border: rgba(0, 0, 0, 0.06);
+  --card-shadow: 0 8px 32px rgba(20, 20, 30, 0.08);
+  --bg-gradients:
+    radial-gradient(1200px 600px at 10% -10%, rgba(99,102,241,0.08), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(236,72,153,0.06), transparent 55%);
+  color-scheme: light;
+}
+
+:root.dark {
+  --bg-rgb: 15 15 19;
+  --fg-rgb: 240 240 245;
+  --surface-rgb: 255 255 255;
+  --card-bg: rgba(255, 255, 255, 0.06);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --bg-gradients:
+    radial-gradient(1200px 600px at 10% -10%, rgba(99,102,241,0.10), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(236,72,153,0.08), transparent 55%);
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-gradients), rgb(var(--bg-rgb));
+  color: rgb(var(--fg-rgb));
+  cursor: none;
+}
+.show-cursor, .show-cursor * { cursor: auto !important; }
+
+* { transition: color 0.3s ease, background-color 0.3s ease, opacity 0.3s ease, transform 0.3s ease; }
+
+@layer components {
+  .card {
+    background: var(--card-bg);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid var(--card-border);
+    border-radius: 1.5rem;
+    box-shadow: var(--card-shadow);
+  }
+  .card-pad { @apply card p-6; }
+  .stat-label {
+    color: rgb(var(--fg-rgb) / 0.5);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+}
+
+/* Calendar event titles: per-event color reads on dark bg, but washes out on
+   white. Use the event color in dark mode; swap to readable dark fg in light.
+   `--ev-color` is set inline on the event card via style={{ '--ev-color': … }}.
+*/
+/* Member-color text: use each kid's assigned color as-is on dark bg, but
+   mix toward black on light bg so the same identity color stays readable.
+   `--mem-color` is set inline on the element (or any ancestor). */
+.mem-text { color: var(--mem-color); }
+:root:not(.dark) .mem-text { color: color-mix(in oklab, var(--mem-color) 45%, black); }
+
+.cal-event-card  { background-color: rgb(from var(--ev-color) r g b / 0.16); }
+.cal-event-title { color: var(--ev-color); }
+:root:not(.dark) .cal-event-card  { background-color: rgb(from var(--ev-color) r g b / 0.22); }
+:root:not(.dark) .cal-event-title { color: rgb(var(--fg-rgb) / 0.92); }
+
+/* Light-mode contrast lift.
+   The design was tuned in dark mode where low-alpha text on a black bg still
+   reads. The same alpha values on a near-white bg produce low-contrast greys.
+   Override the common `text-fg/N` levels (and stat-label) so faded text stays
+   legible in light mode without changing dark-mode behavior. */
+:root:not(.dark) .stat-label        { color: rgb(var(--fg-rgb) / 0.66); }
+:root:not(.dark) .text-fg\/20       { color: rgb(var(--fg-rgb) / 0.42); }
+:root:not(.dark) .text-fg\/25       { color: rgb(var(--fg-rgb) / 0.48); }
+:root:not(.dark) .text-fg\/30       { color: rgb(var(--fg-rgb) / 0.54); }
+:root:not(.dark) .text-fg\/40       { color: rgb(var(--fg-rgb) / 0.62); }
+:root:not(.dark) .text-fg\/50       { color: rgb(var(--fg-rgb) / 0.68); }
+:root:not(.dark) .text-fg\/55       { color: rgb(var(--fg-rgb) / 0.72); }
+:root:not(.dark) .text-fg\/60       { color: rgb(var(--fg-rgb) / 0.76); }
+:root:not(.dark) .text-fg\/65       { color: rgb(var(--fg-rgb) / 0.80); }
+:root:not(.dark) .text-fg\/70       { color: rgb(var(--fg-rgb) / 0.84); }
+:root:not(.dark) .text-fg\/75       { color: rgb(var(--fg-rgb) / 0.87); }
+:root:not(.dark) .text-fg\/80       { color: rgb(var(--fg-rgb) / 0.90); }
+:root:not(.dark) .text-fg\/85       { color: rgb(var(--fg-rgb) / 0.93); }
+:root:not(.dark) .text-fg\/90       { color: rgb(var(--fg-rgb) / 0.95); }
+:root:not(.dark) .text-fg\/95       { color: rgb(var(--fg-rgb) / 0.97); }
+
+.time-display {
+  font-size: clamp(4.5rem, 9vw, 7rem);
+  font-weight: 200;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.date-display {
+  font-size: clamp(1.25rem, 1.6vw, 1.75rem);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+.event-title { font-size: 1rem; font-weight: 500; }
+
+::-webkit-scrollbar { width: 0; height: 0; }
+
+/* Celebration confetti — particles fly up/out with gravity, fade, then self-clean */
+.celebration-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  overflow: hidden;
+}
+.celebration-origin {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.celebration-dot,
+.celebration-emoji {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform, opacity;
+  pointer-events: none;
+  user-select: none;
+  animation: celebrate-burst var(--dur, 1100ms) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.celebration-dot {
+  width: var(--size, 8px);
+  height: var(--size, 8px);
+  margin-left: calc(var(--size, 8px) / -2);
+  margin-top:  calc(var(--size, 8px) / -2);
+  border-radius: 9999px;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.25);
+}
+.celebration-emoji {
+  font-size: var(--size, 24px);
+  line-height: 1;
+  transform-origin: center;
+  margin-left: calc(var(--size, 24px) / -2);
+  margin-top:  calc(var(--size, 24px) / -2);
+}
+@keyframes celebrate-burst {
+  0%   { transform: translate(0, 0) rotate(0) scale(0.4); opacity: 0; }
+  12%  { transform: translate(calc(var(--tx) * 0.18), calc(var(--ty) * 0.18)) rotate(calc(var(--rot) * 0.1)) scale(1); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translate(var(--tx), calc(var(--ty) + var(--gy))) rotate(var(--rot)) scale(0.7); opacity: 0; }
+}
+
+/* Liquid glass tiles — translucent, refractive, with specular top highlight.
+   Used by the Available Meals list (and any other card that wants a hero feel). */
+.glass-tile {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.78) 0%,
+      rgba(255, 255, 255, 0.55) 50%,
+      rgba(255, 255, 255, 0.62) 100%
+    );
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 1.25rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.4),
+    0 1px 2px rgba(20, 20, 30, 0.04),
+    0 8px 24px -10px rgba(20, 20, 30, 0.18);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+.glass-tile:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(255, 255, 255, 0.66) 100%
+    );
+}
+.glass-tile-active {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.98) 0%,
+      rgba(255, 255, 255, 0.86) 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.55),
+    0 2px 4px rgba(20, 20, 30, 0.08),
+    0 16px 36px -10px rgba(20, 20, 30, 0.32);
+}
+
+/* Dark theme — invert the highlight/shadow values so the same glass effect reads on dark surfaces. */
+:root.dark .glass-tile {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.10) 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 10px 28px -8px rgba(0, 0, 0, 0.5);
+}
+:root.dark .glass-tile:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.07) 100%
+    );
+  border-color: rgba(255, 255, 255, 0.20);
+}
+:root.dark .glass-tile-active {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.30) 0%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0.18) 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    0 18px 40px -8px rgba(0, 0, 0, 0.6);
+}
+
+/* Subtle entry fade for newly-loaded cards */
+@keyframes fade-in {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fade-in 500ms ease-out; }
+
+/* Pop animation when a chore checkbox flips to done */
+@keyframes chore-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.45); }
+  70%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.chore-pop { animation: chore-pop 320ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Portal transit — orb spins into a closing ring at the source, then a new
+   ring opens at the destination and the orb spins out. Two-stage animation
+   driven by <PortalLayer />. */
+.portal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
+  overflow: hidden;
+}
+.portal-frame {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.portal-ring,
+.portal-orb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  transition: none;
+}
+.portal-ring {
+  width: 220px;
+  height: 220px;
+  margin: -110px;
+  border-radius: 9999px;
+  background:
+    radial-gradient(
+      circle,
+      transparent 28%,
+      var(--portal-color) 42%,
+      transparent 58%,
+      var(--portal-color) 70%,
+      transparent 82%
+    );
+  filter: blur(4px);
+  opacity: 0;
+}
+.portal-orb {
+  width: 60px;
+  height: 60px;
+  margin: -30px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: #0f0f13;
+  box-shadow:
+    0 0 18px var(--portal-color),
+    0 0 36px var(--portal-color);
+  opacity: 0;
+}
+
+.portal-enter .portal-ring { animation: portal-enter-ring 650ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.portal-enter .portal-orb  { animation: portal-enter-orb  650ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.portal-exit  .portal-ring { animation: portal-exit-ring  900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.portal-exit  .portal-orb  { animation: portal-exit-orb   900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes portal-enter-ring {
+  0%   { transform: scale(0)   rotate(0);     opacity: 0;    }
+  35%  { transform: scale(1.1) rotate(140deg); opacity: 0.95; }
+  100% { transform: scale(0.15) rotate(540deg); opacity: 0;    }
+}
+@keyframes portal-enter-orb {
+  0%   { transform: scale(0.4) rotate(0);    opacity: 0; }
+  20%  { transform: scale(1.2) rotate(80deg); opacity: 1; }
+  100% { transform: scale(0)   rotate(720deg); opacity: 0; }
+}
+@keyframes portal-exit-ring {
+  0%   { transform: scale(0.15) rotate(0);    opacity: 0;   }
+  40%  { transform: scale(1.25) rotate(260deg); opacity: 0.95; }
+  100% { transform: scale(0)    rotate(540deg); opacity: 0;   }
+}
+@keyframes portal-exit-orb {
+  0%   { transform: scale(0)    rotate(-540deg); opacity: 0; }
+  35%  { transform: scale(1.35) rotate(-60deg);  opacity: 1; }
+  65%  { transform: scale(0.92) rotate(0);       opacity: 1; }
+  100% { transform: scale(1)    rotate(0);       opacity: 0; }
+}
+
+/* Dim overlay — black layer over the whole UI */
+.dim-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: #000;
+  pointer-events: none;
+  transition: opacity 1.5s ease;
+}
+.dim-overlay.touchable { pointer-events: auto; cursor: pointer; }
+
+/* Dim clock — visible above the overlay */
+.dim-clock {
+  position: fixed;
+  inset: 0;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: rgba(240, 240, 245, 0.35);
+  transition: opacity 1s ease;
+}

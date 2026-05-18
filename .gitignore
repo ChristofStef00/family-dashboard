@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Runtime data (DB + uploads)
+server/data/
+server/uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor / agent
+.DS_Store
+.vscode/
+.idea/
+.claude/
+
+# Pi-side ephemeral files (in case anyone runs the kiosk script from inside the repo)
+*.local
