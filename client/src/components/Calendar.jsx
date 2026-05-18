@@ -23,6 +23,14 @@ function isoDate(d) {
   return `${y}-${m}-${day}`;
 }
 function fmtTime(d)      { return new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }).format(d); }
+/** Compact "3p" / "9:30a" / "12p" — for tight calendar cells. */
+function fmtTimeCompact(d) {
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? 'p' : 'a';
+  const h12 = ((h + 11) % 12) + 1;
+  return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2, '0')}${ampm}`;
+}
 
 function buildEventMap(events) {
   const map = new Map();
@@ -312,16 +320,22 @@ function MonthGrid({ ref_, today, eventsByDay, mealsByDay }) {
                     {m.name || m.recipe_slug}
                   </div>
                 ))}
-                {dayEvents.map(ev => (
-                  <div
-                    key={ev.id}
-                    className="cal-event-card cal-event-title text-xs leading-tight rounded px-1.5 py-0.5 break-words"
-                    style={{ borderLeft: `2px solid ${ev.color}`, '--ev-color': ev.color }}
-                    title={ev.title}
-                  >
-                    {ev.title}
-                  </div>
-                ))}
+                {dayEvents.map(ev => {
+                  const time = !ev.all_day ? fmtTimeCompact(new Date(ev.start_time)) : null;
+                  return (
+                    <div
+                      key={ev.id}
+                      className="cal-event-card cal-event-title text-xs leading-tight rounded px-1.5 py-0.5 break-words"
+                      style={{ borderLeft: `2px solid ${ev.color}`, '--ev-color': ev.color }}
+                      title={`${time ? time + ' ' : ''}${ev.title}`}
+                    >
+                      {time && (
+                        <span className="opacity-70 tabular-nums mr-1">{time}</span>
+                      )}
+                      {ev.title}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
