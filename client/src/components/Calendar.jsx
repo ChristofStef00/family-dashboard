@@ -22,11 +22,36 @@ function isoDate(d) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-function fmtTime(d)      { return new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }).format(d); }
-/** Compact "3p" / "9:30a" / "12p" — for tight calendar cells. */
-function fmtTimeCompact(d) {
-  const h = d.getHours();
-  const m = d.getMinutes();
+/**
+ * Locale + timezone-aware time formatting.
+ *   opts.clockFormat = 12 | 24  (defaults to 12)
+ *   opts.timezone    = IANA tz string from settings (e.g. "America/Denver").
+ *                      Without this the browser uses its host system tz,
+ *                      which on the Pi is UTC by default → wrong hours.
+ */
+function fmtTime(d, opts = {}) {
+  const hour12 = (opts.clockFormat ?? 12) !== 24;
+  return new Intl.DateTimeFormat([], {
+    hour:   'numeric',
+    minute: '2-digit',
+    hour12,
+    timeZone: opts.timezone || undefined
+  }).format(d);
+}
+
+/** Compact "3p" / "9:30a" / "12p" — used in tight month cells. */
+function fmtTimeCompact(d, opts = {}) {
+  // Pull the hour/minute *in the target timezone* before formatting compactly.
+  const parts = new Intl.DateTimeFormat([], {
+    hour: 'numeric', minute: '2-digit', hour12: false,
+    timeZone: opts.timezone || undefined
+  }).formatToParts(d);
+  const h = Number(parts.find(p => p.type === 'hour')?.value || 0);
+  const m = Number(parts.find(p => p.type === 'minute')?.value || 0);
+
+  if ((opts.clockFormat ?? 12) === 24) {
+    return m === 0 ? `${h}` : `${h}:${String(m).padStart(2, '0')}`;
+  }
   const ampm = h >= 12 ? 'p' : 'a';
   const h12 = ((h + 11) % 12) + 1;
   return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2, '0')}${ampm}`;
@@ -49,8 +74,11 @@ export default function Calendar({
   weather,
   plannedMeals = [],
   view: viewProp,
-  onViewChange
+  onViewChange,
+  clockFormat = 12,
+  timezone
 }) {
+  const timeOpts = { clockFormat, timezone };
   const today = useNow(60_000);
   // Controlled when viewProp/onViewChange are passed; uncontrolled fallback otherwise.
   const [internalView, setInternalView] = useState('week');
@@ -128,8 +156,8 @@ export default function Calendar({
 
       <div className="flex-1 min-h-0 mt-4">
         {view === 'week'
-          ? <WeekGrid ref_={ref} today={today} eventsByDay={eventsByDay} weatherByDay={weatherByDay} mealsByDay={mealsByDay} />
-          : <MonthGrid ref_={ref} today={today} eventsByDay={eventsByDay} mealsByDay={mealsByDay} />}
+          ? <WeekGrid ref_={ref} today={today} eventsByDay={eventsByDay} weatherByDay={weatherByDay} mealsByDay={mealsByDay} timeOpts={timeOpts} />
+          : <MonthGrid ref_={ref} today={today} eventsByDay={eventsByDay} mealsByDay={mealsByDay} timeOpts={timeOpts} />}
       </div>
     </div>
   );
@@ -190,7 +218,7 @@ function ToggleButton({ active, children, onClick }) {
   );
 }
 
-function WeekGrid({ ref_, today, eventsByDay, weatherByDay, mealsByDay }) {
+function WeekGrid({ ref_, today, eventsByDay, weatherByDay, mealsByDay, timeOpts = {} }) {
   const days = useMemo(() => {
     const start = startOfWeek(ref_);
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -264,7 +292,7 @@ function WeekGrid({ ref_, today, eventsByDay, weatherByDay, mealsByDay }) {
                   </div>
                   {!ev.all_day && (
                     <div className="text-fg/55 text-sm tabular-nums mt-1">
-                      {fmtTime(new Date(ev.start_time))}
+                      {fmtTime(new Date(ev.start_time), timeOpts)}
                     </div>
                   )}
                 </div>
@@ -277,7 +305,7 @@ function WeekGrid({ ref_, today, eventsByDay, weatherByDay, mealsByDay }) {
   );
 }
 
-function MonthGrid({ ref_, today, eventsByDay, mealsByDay }) {
+function MonthGrid({ ref_, today, eventsByDay, mealsByDay, timeOpts = {} }) {
   const grid = useMemo(() => {
     const first = startOfMonth(ref_);
     const start = addDays(first, -first.getDay());
@@ -321,7 +349,7 @@ function MonthGrid({ ref_, today, eventsByDay, mealsByDay }) {
                   </div>
                 ))}
                 {dayEvents.map(ev => {
-                  const time = !ev.all_day ? fmtTimeCompact(new Date(ev.start_time)) : null;
+                  const time = !ev.all_day ? fmtTimeCompact(new Date(ev.start_time), timeOpts) : null;
                   return (
                     <div
                       key={ev.id}

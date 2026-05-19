@@ -83,6 +83,8 @@ export default function App() {
             plannedMeals={plannedMeals || []}
             view={calendarView}
             onViewChange={setCalendarView}
+            clockFormat={clockFormat}
+            timezone={tz}
           />
         </main>
       ) : view === 'meals' ? (

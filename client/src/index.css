@@ -39,6 +39,11 @@ body {
   background: var(--bg-gradients), rgb(var(--bg-rgb));
   color: rgb(var(--fg-rgb));
   cursor: none;
+  /* Inter for text, Noto Color Emoji for emoji codepoints (loaded as a web
+     font in index.html). Listing Noto BEFORE the platform emoji fonts forces
+     consistent rendering across the Mac admin browser and the Pi kiosk. */
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif,
+               'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', emoji;
 }
 .show-cursor, .show-cursor * { cursor: auto !important; }
 
