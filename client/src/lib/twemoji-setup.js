@@ -19,12 +19,25 @@
  * passes, so re-running is cheap.
  */
 
+/**
+ * Microsoft Fluent UI Emoji (the "flat" 2D variant) served by Iconify's
+ * public CDN. Twemoji's URL builder uses base + folder + codepoint + ext,
+ * which doesn't fit Iconify's `set:icon.svg` pattern — so we use a
+ * `callback` instead to construct each URL ourselves.
+ *
+ * Fluent provides three variants:
+ *   - fluent-emoji          (3D, glossy / iOS-like)
+ *   - fluent-emoji-flat     (clean 2D illustration — what we use)
+ *   - fluent-emoji-high-contrast (accessibility, monochrome)
+ *
+ * If you want to try a different set, change the prefix in `callback`.
+ */
 const PARSE_OPTS = {
-  folder: 'svg',
-  ext: '.svg',
-  // Twitter's repo is archived but the SVG assets are still mirrored on jsdelivr.
-  base: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/',
-  className: 'twemoji'
+  className: 'twemoji',
+  callback: (icon /*, options */) => {
+    // `icon` is the lowercase hex codepoint(s) joined by "-".
+    return `https://api.iconify.design/fluent-emoji-flat:${icon}.svg`;
+  }
 };
 
 function safeParse() {
