@@ -107,12 +107,17 @@ export async function syncOneIcs(sub) {
     const location = evt.location || null;
     const allDay = evt.datetype === 'date';
 
-    // Decide which timezone the wall-fields should be interpreted in.
-    // If node-ical already parsed a real IANA TZID, trust it (the Date
-    // already has the correct UTC ms). Otherwise (no TZID, "UTC" floating,
-    // or an unknown TZID), assume the user's configured timezone.
-    const evtTz = evt.start?.tz;
-    const reinterpret = !allDay && !isValidTz(evtTz);
+    // For personal ICS calendars the only sensible default is "wall time in
+    // the user's local tz." node-ical is famously unreliable about applying
+    // TZIDs (it sometimes sets evt.start.tz to a valid name but still
+    // produces a wrong Date), so we always rebuild the absolute moment from
+    // the wall fields + the user's configured timezone.
+    //
+    // Caveat: if you ever subscribe to a feed that genuinely lives in a
+    // different timezone (a relative's Eastern calendar, etc.), the events
+    // will be shifted to your tz. Per-subscription override will land if
+    // someone actually hits that case.
+    const reinterpret = !allDay;
     const fixDate = (d) => (d && reinterpret ? reinterpretAsTz(d, fallbackTz) : d);
 
     if (evt.rrule) {
