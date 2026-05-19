@@ -9,11 +9,34 @@ const COLOR_SWATCHES = [
   '#fca5a5', '#9ca3af'
 ];
 
-// Common emoji avatars; users can also type their own.
+// Avatar options. Every emoji here has been verified to have a
+// `fluent-emoji-flat` glyph on Iconify's CDN — so nothing in this picker
+// renders as a broken image on the dashboard.
 const EMOJI_PRESETS = [
-  '👩', '👨', '👧', '👦', '🧒', '👶',
-  '👵', '👴', '👩‍🦰', '👨‍🦰', '👩‍🦱', '👨‍🦱',
-  '🐶', '🐱', '🦊', '🐻', '🐼', '🦁', '🐯', '🐸'
+  // People — kids
+  '👶', '🧒', '👧', '👦',
+  // People — adults
+  '👩', '👨', '🧑',
+  // People — hair variants
+  '👩‍🦰', '👨‍🦰', '👩‍🦱', '👨‍🦱', '👩‍🦳', '👨‍🦳',
+  // People — older
+  '👵', '👴', '🧓',
+  // Fantasy / heroes
+  '👸', '🤴', '🦸', '🦹', '🧙', '🧚', '🧝', '🧞',
+  // Spooky / sci-fi
+  '🤖', '👻', '👽', '🎃',
+  // Animals — mammals
+  '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
+  '🐨', '🐯', '🦁', '🐮', '🐷', '🐵', '🐺', '🐴',
+  '🦄', '🐘', '🦒', '🦓', '🦘', '🦔', '🦝', '🦦',
+  '🦥', '🐪',
+  // Animals — birds / reptiles / sea / bugs
+  '🐔', '🐧', '🦆', '🦅', '🦉',
+  '🐸', '🐊', '🐢', '🦖',
+  '🐝', '🦋',
+  '🐬', '🐳', '🐙', '🦈', '🐟',
+  // Magic objects
+  '🌟', '⭐', '✨', '🌈', '🚀', '🌞', '🌚', '🌜'
 ];
 
 export default function MemberPanel() {
