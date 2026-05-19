@@ -92,8 +92,10 @@ export async function syncOneIcs(sub) {
   const calendarId = `ics:${sub.id}`;
   const fallbackTz = getDefaultTz();
 
+  // Past 30 days stay populated so the calendar can show events that have
+  // already ended, plus 90 days forward. Matches the OAuth sync window.
   const now = new Date();
-  const rangeStart = new Date(now); rangeStart.setDate(rangeStart.getDate() - 7);
+  const rangeStart = new Date(now); rangeStart.setDate(rangeStart.getDate() - 30);
   const rangeEnd   = new Date(now); rangeEnd.setDate(rangeEnd.getDate() + 90);
 
   const incoming = [];

@@ -266,8 +266,10 @@ router.delete('/connections/:id', requireAdmin, (req, res) => {
 });
 
 router.get('/events', (req, res) => {
-  const start = req.query.start || new Date().toISOString();
-  const end = req.query.end || new Date(Date.now() + 35 * 24 * 3600 * 1000).toISOString();
+  // Wide default window so past events stay visible on the kiosk calendar
+  // (60 days back ↔ 90 days forward). Caller can override with start/end.
+  const start = req.query.start || new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString();
+  const end   = req.query.end   || new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString();
   // LEFT JOIN so shared events (no member) come through; COALESCE picks the
   // event's stored color, then the owning member's color, then a neutral default.
   const rows = db.prepare(`
@@ -317,12 +319,15 @@ export async function syncAllCalendars() {
       updated_at  = datetime('now')
   `);
   // `IS ?` so this works for both owned (member_id) and shared (NULL) tokens.
+  // Keep up to 90 days of history so past events stay visible on the calendar.
   const deleteStaleForToken = db.prepare(
-    `DELETE FROM calendar_events WHERE member_id IS ? AND end_time < datetime('now', '-1 day')`
+    `DELETE FROM calendar_events WHERE member_id IS ? AND end_time < datetime('now', '-90 days')`
   );
 
-  const timeMin = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  const timeMax = new Date(Date.now() + 60 * 24 * 3600 * 1000).toISOString();
+  // Sync window: 30 days back ↔ 90 days forward. Past month stays populated
+  // even on a fresh install / cache wipe.
+  const timeMin = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  const timeMax = new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString();
 
   for (const t of tokens) {
     const selected = parseSelected(t);

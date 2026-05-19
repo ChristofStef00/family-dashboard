@@ -73,7 +73,7 @@ cd ~/family-dashboard
 - **Streaks** (`server/src/routes/streaks.js`): four kinds — `chore`, `routine`, `all_chores`, `all_routines`. Event-based counting, vacation-aware, bonus points only.
 - **Vacations** (`server/src/routes/vacations.js`): date ranges per member that pause streaks.
 - **Activity log** (`server/src/routes/activity.js`): unified read of completions, awards, redemptions, fulfillments. Newest first.
-- **Calendar** (`server/src/routes/calendar.js`): Google OAuth + 15-min sync cron.
+- **Calendar** (`server/src/routes/calendar.js`): Google OAuth + 15-min sync cron. Setup walkthrough in [`docs/oauth-calendar-setup.md`](docs/oauth-calendar-setup.md).
 - **Meals** (`server/src/services/mealie.js`): Mealie meal plan + recipe pool, hourly sync.
 
 ## Repo layout
