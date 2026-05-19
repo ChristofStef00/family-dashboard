@@ -185,7 +185,7 @@ function MemberForm({ member, existingCount, onSave, onCancel }) {
       </Field>
 
       <Field label="Avatar">
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-4 flex-wrap">
           <div
             className="h-14 w-14 rounded-full flex items-center justify-center text-3xl shrink-0"
             style={{
@@ -195,14 +195,7 @@ function MemberForm({ member, existingCount, onSave, onCancel }) {
           >
             {emoji || '🙂'}
           </div>
-          <input
-            value={emoji}
-            onChange={e => setEmoji(e.target.value)}
-            maxLength={4}
-            placeholder="Pick or type"
-            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-white/30 text-2xl w-20 text-center"
-          />
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
             {EMOJI_PRESETS.map(e => (
               <button
                 key={e} type="button" onClick={() => setEmoji(e)}
