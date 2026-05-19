@@ -1,4 +1,5 @@
 import ical from 'node-ical';
+import { DateTime } from 'luxon';
 import { db } from '../db/index.js';
 
 const upsertEvent = db.prepare(`
@@ -15,6 +16,42 @@ const upsertEvent = db.prepare(`
     color       = excluded.color,
     updated_at  = datetime('now')
 `);
+
+/* ───── Timezone helpers ────────────────────────────────────────────── */
+
+/** The user's configured display timezone — used as the fallback for any
+ *  ICS event that doesn't carry its own valid TZID. */
+function getDefaultTz() {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get();
+  if (!row) return 'UTC';
+  try { return JSON.parse(row.value); } catch { return row.value; }
+}
+
+/** True if luxon can resolve `tz` to a real IANA zone. */
+function isValidTz(tz) {
+  if (!tz) return false;
+  return DateTime.now().setZone(tz).isValid;
+}
+
+/**
+ * Reinterpret a Date's *UTC wall fields* (the year/month/.../hour numbers you
+ * see when reading the ISO string) as if they were local wall time in `tz`,
+ * and return the actual UTC Date. This is how we rescue events that
+ * node-ical stored as 9 AM UTC when they were meant to be 9 AM <user's tz>.
+ */
+function reinterpretAsTz(date, tz) {
+  if (!tz || tz === 'UTC') return date;
+  return DateTime.fromObject({
+    year:   date.getUTCFullYear(),
+    month:  date.getUTCMonth() + 1,
+    day:    date.getUTCDate(),
+    hour:   date.getUTCHours(),
+    minute: date.getUTCMinutes(),
+    second: date.getUTCSeconds()
+  }, { zone: tz }).toJSDate();
+}
+
+/* ───── Sync ────────────────────────────────────────────────────────── */
 
 /**
  * Sync every active ICS subscription. Idempotent: stale events for each
@@ -53,6 +90,7 @@ export async function syncAllIcs() {
 export async function syncOneIcs(sub) {
   const data = await ical.async.fromURL(sub.url);
   const calendarId = `ics:${sub.id}`;
+  const fallbackTz = getDefaultTz();
 
   const now = new Date();
   const rangeStart = new Date(now); rangeStart.setDate(rangeStart.getDate() - 7);
@@ -69,12 +107,22 @@ export async function syncOneIcs(sub) {
     const location = evt.location || null;
     const allDay = evt.datetype === 'date';
 
+    // Decide which timezone the wall-fields should be interpreted in.
+    // If node-ical already parsed a real IANA TZID, trust it (the Date
+    // already has the correct UTC ms). Otherwise (no TZID, "UTC" floating,
+    // or an unknown TZID), assume the user's configured timezone.
+    const evtTz = evt.start?.tz;
+    const reinterpret = !allDay && !isValidTz(evtTz);
+    const fixDate = (d) => (d && reinterpret ? reinterpretAsTz(d, fallbackTz) : d);
+
     if (evt.rrule) {
       const exdates = new Set(
         Object.values(evt.exdate || {}).map(d => new Date(d).toISOString())
       );
       const overrides = evt.recurrences || {};
-      const duration = (evt.end?.getTime?.() || evt.start.getTime()) - evt.start.getTime();
+      const masterStart = fixDate(evt.start);
+      const masterEnd   = fixDate(evt.end || evt.start);
+      const duration = (masterEnd?.getTime?.() || masterStart.getTime()) - masterStart.getTime();
       let occStarts;
       try {
         occStarts = evt.rrule.between(rangeStart, rangeEnd, true);
@@ -83,7 +131,8 @@ export async function syncOneIcs(sub) {
       }
       for (const occStart of occStarts) {
         if (exdates.has(occStart.toISOString())) continue;
-        const occKey = occStart.toISOString().slice(0, 10);
+        const correctedOcc = fixDate(occStart);
+        const occKey = correctedOcc.toISOString().slice(0, 10);
         const ovr = overrides[occKey];
         const id = `${calendarId}:${evt.uid}:${occKey}`;
         if (ovr) {
@@ -92,24 +141,24 @@ export async function syncOneIcs(sub) {
             title:    ovr.summary || baseTitle,
             description: ovr.description ?? description,
             location: ovr.location  ?? location,
-            start:    ovr.start,
-            end:      ovr.end,
+            start:    fixDate(ovr.start),
+            end:      fixDate(ovr.end),
             allDay:   ovr.datetype === 'date'
           });
         } else {
           incoming.push({
             id,
             title: baseTitle, description, location,
-            start: occStart,
-            end:   new Date(occStart.getTime() + duration),
+            start: correctedOcc,
+            end:   new Date(correctedOcc.getTime() + duration),
             allDay
           });
         }
       }
     } else {
       if (!evt.start) continue;
-      const start = evt.start;
-      const end = evt.end || new Date(start.getTime() + 60 * 60 * 1000);
+      const start = fixDate(evt.start);
+      const end = fixDate(evt.end) || new Date(start.getTime() + 60 * 60 * 1000);
       if (end < rangeStart || start > rangeEnd) continue;
       incoming.push({
         id: `${calendarId}:${evt.uid}`,
@@ -119,16 +168,16 @@ export async function syncOneIcs(sub) {
     }
   }
 
+  // When the subscription has no owner, every event gets the sub's color
+  // baked in so a future member-color change doesn't accidentally repaint
+  // shared events. Owned subs leave color=NULL and inherit member.color.
+  const eventColor = sub.member_id ? null : (sub.color || null);
+
   // Upsert + clean up stale rows for this subscription.
   const incomingIds = new Set(incoming.map(e => e.id));
   const existing = db.prepare(
     `SELECT id FROM calendar_events WHERE calendar_id = ?`
   ).all(calendarId).map(r => r.id);
-
-  // When the subscription has no owner, every event gets the sub's color
-  // baked in so a future member-color change doesn't accidentally repaint
-  // shared events. Owned subs leave color=NULL and inherit member.color.
-  const eventColor = sub.member_id ? null : (sub.color || null);
 
   const tx = db.transaction(() => {
     for (const e of incoming) {
