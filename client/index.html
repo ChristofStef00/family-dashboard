@@ -11,6 +11,14 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=Noto+Color+Emoji&display=swap"
     />
+    <!-- Twemoji: DOM-replaces emoji codepoints with consistent SVGs so admin
+         (Mac/Safari) and the Pi kiosk show identical artwork for the same
+         character. Safari ignores @font-face emoji fonts, so we need this. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.1.0/dist/twemoji.min.js"
+      crossorigin="anonymous"
+      defer
+    ></script>
   </head>
   <body class="bg-bg text-fg font-sans antialiased overflow-hidden">
     <div id="root"></div>

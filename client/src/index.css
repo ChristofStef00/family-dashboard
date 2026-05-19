@@ -39,11 +39,21 @@ body {
   background: var(--bg-gradients), rgb(var(--bg-rgb));
   color: rgb(var(--fg-rgb));
   cursor: none;
-  /* Inter for text, Noto Color Emoji for emoji codepoints (loaded as a web
-     font in index.html). Listing Noto BEFORE the platform emoji fonts forces
-     consistent rendering across the Mac admin browser and the Pi kiosk. */
+  /* Inter for text. Emoji codepoints are replaced with Twemoji SVGs by
+     lib/twemoji-setup.js, but the font stack keeps Noto/Apple/Segoe emoji
+     as fallbacks during the brief window before Twemoji has loaded. */
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif,
                'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', emoji;
+}
+
+/* Twemoji-replaced emoji renders as an <img class="twemoji">. Size it so it
+   sits naturally inside surrounding text + flex containers. */
+img.twemoji {
+  height: 1em;
+  width: 1em;
+  margin: 0 0.05em;
+  vertical-align: -0.125em;
+  display: inline-block;
 }
 .show-cursor, .show-cursor * { cursor: auto !important; }
 

@@ -7,9 +7,18 @@ html, body, #root { height: 100%; margin: 0; }
 body {
   background: #0f0f13;
   color: #f0f0f5;
-  /* Inter for text, Noto Color Emoji for emoji codepoints — keeps avatars
-     identical across the Mac admin browser and the Pi kiosk. */
+  /* Inter for text. Emoji codepoints are DOM-replaced by Twemoji (see
+     lib/twemoji-setup.js); the emoji fonts below are just fallbacks while
+     the Twemoji script is still loading. */
   font-family: Inter, ui-sans-serif, system-ui, sans-serif,
                'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', emoji;
   -webkit-font-smoothing: antialiased;
+}
+
+img.twemoji {
+  height: 1em;
+  width: 1em;
+  margin: 0 0.05em;
+  vertical-align: -0.125em;
+  display: inline-block;
 }
