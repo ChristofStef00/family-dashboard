@@ -9,6 +9,7 @@ import ChorePanel from './components/ChorePanel.jsx';
 import RewardPanel from './components/RewardPanel.jsx';
 import BankedRewardsPanel from './components/BankedRewardsPanel.jsx';
 import LocationPanel from './components/LocationPanel.jsx';
+import DisplaySchedulePanel from './components/DisplaySchedulePanel.jsx';
 import StreakRewardPanel from './components/StreakRewardPanel.jsx';
 import VacationPanel from './components/VacationPanel.jsx';
 import ActivityLogPanel from './components/ActivityLogPanel.jsx';
@@ -112,6 +113,7 @@ export default function App() {
         {section === 'setup' && (
           <>
             <LocationPanel />
+            <DisplaySchedulePanel />
             <VacationPanel />
             <IcsCalendarPanel />
             <CalendarSetup />

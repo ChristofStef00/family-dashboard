@@ -115,7 +115,10 @@ fi
 step "Configuring Chromium kiosk autostart"
 # Detect chromium binary (Trixie ships `chromium`; older Bookworm ships `chromium-browser`).
 CHROMIUM_BIN=$(command -v chromium-browser || command -v chromium || echo chromium)
-CHROMIUM_ARGS="--kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 --disable-pinch --overscroll-history-navigation=0 --no-first-run --start-fullscreen ${SERVER_URL}"
+# --password-store=basic tells Chromium to use a plain profile file instead
+# of libsecret/gnome-keyring, so the autologin session never gets stuck on
+# the "Unlock keyring" prompt at every boot.
+CHROMIUM_ARGS="--kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 --disable-pinch --overscroll-history-navigation=0 --no-first-run --start-fullscreen --password-store=basic ${SERVER_URL}"
 KIOSK_TAG="family-dashboard-kiosk"
 
 # ─── X11 / LXDE-pi (legacy Bookworm + Trixie-after-raspi-config-X11) ────
@@ -142,19 +145,24 @@ if command -v wayfire >/dev/null 2>&1; then
   ok "Wayfire autostart → ${WAYFIRE_INI}"
 fi
 
-# ─── labwc (Pi 5 default on Trixie Wayland) ─────────────────────────────
+# ─── labwc (Pi 5 + Pi 4 default on Trixie Wayland) ──────────────────────
 if command -v labwc >/dev/null 2>&1; then
   LABWC_AUTO="${HOME}/.config/labwc/autostart"
   mkdir -p "$(dirname "$LABWC_AUTO")"
   if [ -f "$LABWC_AUTO" ]; then
-    # Strip any prior kiosk line, keep rest of file intact.
+    # Strip any prior kiosk + scheduler lines, keep rest of file intact.
     sed -i "/${KIOSK_TAG}/d" "$LABWC_AUTO"
+    sed -i "/screen-scheduler.sh/d" "$LABWC_AUTO"
   else
     echo '#!/bin/sh' > "$LABWC_AUTO"
   fi
   echo "${CHROMIUM_BIN} ${CHROMIUM_ARGS} &  # ${KIOSK_TAG}" >> "$LABWC_AUTO"
+  # Nightly screen-off scheduler. Must run inside the labwc session so it
+  # inherits the Wayland socket — that's why it's launched here, not via
+  # systemd. Admin → Setup → Screen Schedule controls the times.
+  echo "${APP_DIR}/scripts/screen-scheduler.sh >>/tmp/screen-scheduler.log 2>&1 &" >> "$LABWC_AUTO"
   chmod +x "$LABWC_AUTO"
-  ok "labwc autostart  → ${LABWC_AUTO}"
+  ok "labwc autostart  → ${LABWC_AUTO} (kiosk + screen scheduler)"
 fi
 
 # ─── XDG fallback (works for any compliant session) ─────────────────────
