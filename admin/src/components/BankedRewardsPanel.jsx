@@ -37,29 +37,31 @@ export default function BankedRewardsPanel() {
           {redemptions.map(r => (
             <li
               key={r.id}
-              className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex items-center gap-3"
+              className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
             >
-              <span
-                className="h-9 w-9 rounded-full flex items-center justify-center text-lg shrink-0"
-                style={{
-                  backgroundColor: `${r.member_color}33`,
-                  border: `1px solid ${r.member_color}66`
-                }}
-              >
-                {r.member_emoji}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{r.reward_title}</div>
-                <div className="text-fg/50 text-xs">
-                  <span style={{ color: r.member_color }}>{r.member_name}</span>
-                  {' · '}
-                  {new Date(r.redeemed_at).toLocaleDateString()}
-                  {' · '}{r.point_cost} pts
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-lg shrink-0"
+                  style={{
+                    backgroundColor: `${r.member_color}33`,
+                    border: `1px solid ${r.member_color}66`
+                  }}
+                >
+                  {r.member_emoji}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm break-words">{r.reward_title}</div>
+                  <div className="text-fg/50 text-xs break-words">
+                    <span style={{ color: r.member_color }}>{r.member_name}</span>
+                    {' · '}
+                    {new Date(r.redeemed_at).toLocaleDateString()}
+                    {' · '}{r.point_cost} pts
+                  </div>
                 </div>
               </div>
               <button
                 onClick={() => markDone(r.id)}
-                className="rounded-full px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 text-emerald-200 text-xs uppercase tracking-widest font-medium transition"
+                className="rounded-full px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 text-emerald-200 text-xs uppercase tracking-widest font-medium transition shrink-0 sm:ml-auto self-end sm:self-auto"
               >
                 Mark done
               </button>

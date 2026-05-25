@@ -81,15 +81,17 @@ router.get('/today', (req, res) => {
     custom_days: p.custom_days ? JSON.parse(p.custom_days) : null
   }));
 
-  // Bonuses past the recurrence window are filtered out.
-  const onceCompleted = new Set(
+  // Once-frequency bonuses are tracked PER MEMBER, not globally — so a
+  // multi-claim bonus completed by Renley still shows up on Nixon's card
+  // until Nixon completes it himself.
+  const onceCompletedByMember = new Set(
     db.prepare(`
-      SELECT DISTINCT chore_id FROM chore_completions
+      SELECT chore_id, member_id FROM chore_completions
       WHERE chore_id IN (SELECT id FROM chores WHERE category = 'bonus' AND frequency = 'once')
-    `).all().map(r => r.chore_id)
+    `).all().map(r => `${r.chore_id}:${r.member_id}`)
   );
   const visible = pairs.filter(p => {
-    if (p.frequency === 'once')   return !onceCompleted.has(p.chore_id);
+    if (p.frequency === 'once')   return !onceCompletedByMember.has(`${p.chore_id}:${p.member_id}`);
     if (p.frequency === 'daily')  return true;
     if (p.frequency === 'weekly') return true;
     if (p.frequency === 'custom') return Array.isArray(p.custom_days) && p.custom_days.includes(dow);
@@ -116,7 +118,7 @@ router.get('/today', (req, res) => {
     completed: p.frequency === 'weekly'
       ? weekSet.has(`${p.chore_id}:${p.member_id}`)
       : p.frequency === 'once'
-        ? onceCompleted.has(p.chore_id)
+        ? onceCompletedByMember.has(`${p.chore_id}:${p.member_id}`)
         : todaySet.has(`${p.chore_id}:${p.member_id}`)
   })));
 });

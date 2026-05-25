@@ -87,30 +87,32 @@ export default function VacationPanel() {
             .map(id => members.find(m => m.id === id))
             .filter(Boolean);
           return (
-            <li key={v.id} className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex items-center gap-3">
+            <li key={v.id} className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm">{formatRange(v.start_date, v.end_date)}</div>
-                <div className="text-fg/50 text-xs">
+                <div className="font-medium text-sm break-words">{formatRange(v.start_date, v.end_date)}</div>
+                <div className="text-fg/50 text-xs break-words">
                   {assigned.length === 0 ? 'Everyone' : assigned.map(m => m.name).join(', ')}
                   {v.note ? ` · ${v.note}` : ''}
                 </div>
               </div>
-              {assigned.length > 0 && (
-                <div className="flex items-center -space-x-1 shrink-0">
-                  {assigned.map(m => (
-                    <span
-                      key={m.id}
-                      className="h-6 w-6 rounded-full flex items-center justify-center text-sm border-2 border-black/30"
-                      style={{ backgroundColor: `${m.color}33`, color: m.color }}
-                      title={m.name}
-                    >
-                      {m.emoji}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <button onClick={() => setEditing(v)} className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
-              <button onClick={() => remove(v.id)}  className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
+              <div className="flex items-center gap-3 shrink-0 sm:ml-auto self-end sm:self-auto">
+                {assigned.length > 0 && (
+                  <div className="flex items-center -space-x-1 shrink-0">
+                    {assigned.map(m => (
+                      <span
+                        key={m.id}
+                        className="h-6 w-6 rounded-full flex items-center justify-center text-sm border-2 border-black/30"
+                        style={{ backgroundColor: `${m.color}33`, color: m.color }}
+                        title={m.name}
+                      >
+                        {m.emoji}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => setEditing(v)} className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
+                <button onClick={() => remove(v.id)}  className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
+              </div>
             </li>
           );
         })}

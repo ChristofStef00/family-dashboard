@@ -92,35 +92,39 @@ export default function StreakRewardPanel() {
             .map(id => members.find(m => m.id === id))
             .filter(Boolean);
           return (
-            <li key={r.id} className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex items-center gap-3">
-              <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest font-medium shrink-0 bg-white/12 text-fg/90">
-                {kindLabel(r.kind)}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm break-words">
-                  {target} · {r.threshold_days}× → <span className="text-fg/95">+{r.bonus_points || 0} pts</span>
-                </div>
-                <div className="text-fg/50 text-xs">
-                  {assigned.length === 0 ? 'everyone' : assigned.map(m => m.name).join(', ')}
-                  {!r.active && ' · inactive'}
+            <li key={r.id} className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest font-medium shrink-0 bg-white/12 text-fg/90">
+                  {kindLabel(r.kind)}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm break-words">
+                    {target} · {r.threshold_days}× → <span className="text-fg/95">+{r.bonus_points || 0} pts</span>
+                  </div>
+                  <div className="text-fg/50 text-xs break-words">
+                    {assigned.length === 0 ? 'everyone' : assigned.map(m => m.name).join(', ')}
+                    {!r.active && ' · inactive'}
+                  </div>
                 </div>
               </div>
-              {assigned.length > 0 && (
-                <div className="flex items-center -space-x-1 shrink-0">
-                  {assigned.map(m => (
-                    <span
-                      key={m.id}
-                      className="h-6 w-6 rounded-full flex items-center justify-center text-sm border-2 border-black/30"
-                      style={{ backgroundColor: `${m.color}33`, color: m.color }}
-                      title={m.name}
-                    >
-                      {m.emoji}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <button onClick={() => setEditing(r)} className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
-              <button onClick={() => remove(r.id)}  className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
+              <div className="flex items-center gap-3 shrink-0 sm:ml-auto self-end sm:self-auto">
+                {assigned.length > 0 && (
+                  <div className="flex items-center -space-x-1 shrink-0">
+                    {assigned.map(m => (
+                      <span
+                        key={m.id}
+                        className="h-6 w-6 rounded-full flex items-center justify-center text-sm border-2 border-black/30"
+                        style={{ backgroundColor: `${m.color}33`, color: m.color }}
+                        title={m.name}
+                      >
+                        {m.emoji}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => setEditing(r)} className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
+                <button onClick={() => remove(r.id)}  className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
+              </div>
             </li>
           );
         })}

@@ -5,11 +5,25 @@ const FREQUENCIES = ['daily', 'weekly', 'custom', 'once'];
 const CATEGORIES  = ['chore', 'bonus'];
 const CLAIM_MODES = ['multi', 'single'];
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Human-readable frequency for the list rows. Custom days show as the
+// actual weekdays picked (e.g. "Mon, Wed, Fri") so admins don't have to
+// open an Edit form to see the schedule.
+function formatFrequency(c) {
+  if (c.frequency === 'custom' && Array.isArray(c.custom_days) && c.custom_days.length > 0) {
+    return c.custom_days.slice().sort((a, b) => a - b).map(d => DAY_NAMES[d]).join(', ');
+  }
+  if (c.frequency === 'once') return 'one-time';
+  return c.frequency;
+}
+
 export default function ChorePanel() {
   const [chores, setChores]   = useState([]);
   const [members, setMembers] = useState([]);
   const [editing, setEditing] = useState(null);   // chore being edited (or 'new')
   const [error, setError]     = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   async function refresh() {
     try {
@@ -41,17 +55,28 @@ export default function ChorePanel() {
 
   return (
     <section className="rounded-2xl bg-white/[0.04] border border-white/10 p-5 mt-8">
-      <header className="flex items-baseline justify-between mb-4">
-        <div>
+      <header className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
+        <div className="min-w-0">
           <h2 className="text-2xl font-light tracking-tight">Chores &amp; Bonuses</h2>
           <p className="text-fg/50 text-sm mt-1">Each chore awards points when completed. Mark as bonus to put it in the kid-pickable Bonuses list on the Points page.</p>
         </div>
-        <button
-          onClick={() => setEditing('new')}
-          className="rounded-full px-4 py-2 bg-white/15 hover:bg-white/25 active:scale-95 text-sm font-medium transition"
-        >
-          + Add
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <label className="flex items-center gap-1.5 text-xs text-fg/55 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={e => setShowArchived(e.target.checked)}
+              className="h-3.5 w-3.5 accent-fg/80"
+            />
+            Show archived
+          </label>
+          <button
+            onClick={() => setEditing('new')}
+            className="rounded-full px-4 py-2 bg-white/15 hover:bg-white/25 active:scale-95 text-sm font-medium transition"
+          >
+            + Add
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -68,37 +93,45 @@ export default function ChorePanel() {
       )}
 
       <ul className="flex flex-col gap-2 mt-3">
-        {chores.map(c => (
+        {chores.filter(c => showArchived || c.active).map(c => (
           <li
             key={c.id}
-            className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex items-center gap-3"
+            className={[
+              'rounded-2xl bg-white/[0.03] border border-white/10 p-3',
+              'flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3',
+              !c.active && 'opacity-60'
+            ].filter(Boolean).join(' ')}
           >
-            <span
-              className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest font-medium shrink-0"
-              style={{
-                backgroundColor: c.category === 'bonus' ? '#fb923c' : 'rgba(255,255,255,0.12)',
-                color: c.category === 'bonus' ? '#0f0f13' : '#f0f0f5'
-              }}
-            >
-              {c.category}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate">{c.title}</div>
-              <div className="text-fg/50 text-xs">
-                {c.points} pt · {c.frequency}
-                {c.category === 'chore' && (
-                  <span> · {c.assignee_ids?.length
-                    ? `${c.assignee_ids.length} assignee${c.assignee_ids.length === 1 ? '' : 's'}`
-                    : 'unassigned'}</span>
-                )}
-                {c.category === 'bonus' && (
-                  <span> · {c.claim_mode === 'single' ? 'single-claim' : 'multi-claim'}</span>
-                )}
-                {!c.active && ' · inactive'}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <span
+                className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest font-medium shrink-0"
+                style={{
+                  backgroundColor: c.category === 'bonus' ? '#fb923c' : 'rgba(255,255,255,0.12)',
+                  color: c.category === 'bonus' ? '#0f0f13' : '#f0f0f5'
+                }}
+              >
+                {c.category}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm break-words">{c.title}</div>
+                <div className="text-fg/50 text-xs break-words">
+                  {c.points} pt · {formatFrequency(c)}
+                  {c.category === 'chore' && (
+                    <span> · {c.assignee_ids?.length
+                      ? `${c.assignee_ids.length} assignee${c.assignee_ids.length === 1 ? '' : 's'}`
+                      : 'unassigned'}</span>
+                  )}
+                  {c.category === 'bonus' && (
+                    <span> · {c.claim_mode === 'single' ? 'single-claim' : 'multi-claim'}</span>
+                  )}
+                  {!c.active && ' · archived'}
+                </div>
               </div>
             </div>
-            <button onClick={() => setEditing(c)} className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
-            <button onClick={() => remove(c.id)}  className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
+            <div className="flex items-center gap-3 shrink-0 sm:ml-auto self-end sm:self-auto">
+              <button onClick={() => setEditing(c)} className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
+              <button onClick={() => remove(c.id)}  className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
+            </div>
           </li>
         ))}
       </ul>
@@ -150,7 +183,10 @@ function ChoreForm({ chore, members, onSave, onCancel }) {
       </Field>
 
       {frequency === 'custom' && (
-        <Field label="Days">
+        <Field
+          label="Days"
+          hint="Pick the days of the week this chore is due. The kiosk will only show it (and the streak engine only count it) on those days."
+        >
           <div className="flex gap-1">
             {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((label, i) => (
               <button

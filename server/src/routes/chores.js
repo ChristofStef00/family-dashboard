@@ -148,8 +148,11 @@ router.patch('/:id', requireAdmin, (req, res) => {
   res.json(parseChore(db.prepare('SELECT * FROM chores WHERE id = ?').get(id)));
 });
 
+// Soft delete — flip active=0 so the chore disappears from kiosk + admin
+// lists but its completions stay linked (preserving every point awarded).
+// Hard deletion would cascade and wipe those completions via the FK.
 router.delete('/:id', requireAdmin, (req, res) => {
-  db.prepare('DELETE FROM chores WHERE id = ?').run(Number(req.params.id));
+  db.prepare('UPDATE chores SET active = 0 WHERE id = ?').run(Number(req.params.id));
   res.status(204).end();
 });
 
@@ -177,6 +180,13 @@ router.post('/:id/complete', (req, res) => {
     INSERT INTO chore_completions (chore_id, member_id, points_awarded)
     VALUES (?, ?, ?)
   `).run(choreId, memberId, chore.points || 0);
+
+  // Auto-archive one-time chores (`category='chore'` only — bonuses with
+  // frequency='once' have their own per-member completion semantics in
+  // /api/bonuses/today and shouldn't be globally archived here).
+  if (chore.category === 'chore' && chore.frequency === 'once') {
+    db.prepare('UPDATE chores SET active = 0 WHERE id = ?').run(choreId);
+  }
 
   const awards = awardStreaksIfDue(memberId, { kind: 'chore', chore_id: choreId });
   res.status(201).json({

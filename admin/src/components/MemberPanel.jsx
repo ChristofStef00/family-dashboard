@@ -124,42 +124,46 @@ export default function MemberPanel() {
         {members.map((m, i) => (
           <li
             key={m.id}
-            className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex items-center gap-3"
+            className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
           >
-            <div
-              className="h-10 w-10 rounded-full flex items-center justify-center text-xl shrink-0"
-              style={{
-                backgroundColor: `${m.color}33`,
-                border: `1px solid ${m.color}66`
-              }}
-            >
-              {m.emoji}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate" style={{ color: m.color }}>
-                {m.name}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div
+                className="h-10 w-10 rounded-full flex items-center justify-center text-xl shrink-0"
+                style={{
+                  backgroundColor: `${m.color}33`,
+                  border: `1px solid ${m.color}66`
+                }}
+              >
+                {m.emoji}
               </div>
-              <div className="text-fg/50 text-xs tabular-nums">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm break-words" style={{ color: m.color }}>
+                  {m.name}
+              </div>
+              <div className="text-fg/50 text-xs tabular-nums break-words">
                 {m.points ?? 0} pts · {m.points_earned ?? 0} earned · {m.points_spent ?? 0} spent
                 {m.show_in_points === false && (
                   <span className="ml-2 text-fg/40 normal-case tracking-normal">· hidden from Points</span>
                 )}
               </div>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => move(m, -1)} disabled={i === 0}
-                className="h-7 w-7 rounded-full bg-white/[0.05] disabled:opacity-25 hover:bg-white/15 text-fg/70 transition"
-                title="Move up"
-              >↑</button>
-              <button
-                onClick={() => move(m, 1)} disabled={i === members.length - 1}
-                className="h-7 w-7 rounded-full bg-white/[0.05] disabled:opacity-25 hover:bg-white/15 text-fg/70 transition"
-                title="Move down"
-              >↓</button>
+            <div className="flex items-center gap-3 shrink-0 sm:ml-auto self-end sm:self-auto">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => move(m, -1)} disabled={i === 0}
+                  className="h-7 w-7 rounded-full bg-white/[0.05] disabled:opacity-25 hover:bg-white/15 text-fg/70 transition"
+                  title="Move up"
+                >↑</button>
+                <button
+                  onClick={() => move(m, 1)} disabled={i === members.length - 1}
+                  className="h-7 w-7 rounded-full bg-white/[0.05] disabled:opacity-25 hover:bg-white/15 text-fg/70 transition"
+                  title="Move down"
+                >↓</button>
+              </div>
+              <button onClick={() => setEditing(m)}  className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
+              <button onClick={() => remove(m)}     className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
             </div>
-            <button onClick={() => setEditing(m)}  className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest ml-1">Edit</button>
-            <button onClick={() => remove(m)}     className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
           </li>
         ))}
         {members.length === 0 && (

@@ -113,31 +113,35 @@ export default function IcsCalendarPanel() {
           const chipColor = shared ? (s.color || '#9ca3af') : s.member_color;
           const chipEmoji = shared ? '📅' : s.member_emoji;
           return (
-            <li key={s.id} className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex items-center gap-3">
-              <span
-                className="h-9 w-9 rounded-full flex items-center justify-center text-lg shrink-0"
-                style={{
-                  backgroundColor: `${chipColor}33`,
-                  border: `1px solid ${chipColor}66`
-                }}
-                title={shared ? 'Shared (no owner)' : (s.member_name || '')}
-              >
-                {chipEmoji}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{s.name}</div>
-                <div className="text-fg/50 text-xs truncate">
-                  {shared ? 'Shared' : s.member_name} · synced {relativeTime(s.last_synced_at)}
-                  {!s.active && ' · paused'}
-                </div>
-                {s.last_error && (
-                  <div className="text-rose-300/80 text-xs mt-0.5 truncate" title={s.last_error}>
-                    ⚠ {s.last_error}
+            <li key={s.id} className="rounded-2xl bg-white/[0.03] border border-white/10 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-lg shrink-0"
+                  style={{
+                    backgroundColor: `${chipColor}33`,
+                    border: `1px solid ${chipColor}66`
+                  }}
+                  title={shared ? 'Shared (no owner)' : (s.member_name || '')}
+                >
+                  {chipEmoji}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm break-words">{s.name}</div>
+                  <div className="text-fg/50 text-xs break-words">
+                    {shared ? 'Shared' : s.member_name} · synced {relativeTime(s.last_synced_at)}
+                    {!s.active && ' · paused'}
                   </div>
-                )}
+                  {s.last_error && (
+                    <div className="text-rose-300/80 text-xs mt-0.5 break-words" title={s.last_error}>
+                      ⚠ {s.last_error}
+                    </div>
+                  )}
+                </div>
               </div>
-              <button onClick={() => setEditing(s)} className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
-              <button onClick={() => remove(s.id)}  className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
+              <div className="flex items-center gap-3 shrink-0 sm:ml-auto self-end sm:self-auto">
+                <button onClick={() => setEditing(s)} className="text-fg/60 hover:text-fg text-xs uppercase tracking-widest">Edit</button>
+                <button onClick={() => remove(s.id)}  className="text-fg/40 hover:text-rose-400 text-xs uppercase tracking-widest">Delete</button>
+              </div>
             </li>
           );
         })}
