@@ -290,15 +290,17 @@ function Field({ label, hint, children }) {
 }
 
 function Pills({ options, value, onChange }) {
+  // Mobile: 2-col grid so 4-option pickers (frequency) don't bunch.
+  // Desktop (sm+): horizontal rounded-full pill bar.
   return (
-    <div className="flex items-center bg-white/[0.04] rounded-full p-0.5 w-fit border border-white/10">
+    <div className="grid grid-cols-2 sm:flex sm:items-center bg-white/[0.04] rounded-2xl sm:rounded-full p-0.5 sm:w-fit border border-white/10 gap-0.5 sm:gap-0">
       {options.map(opt => {
         const on = opt === value;
         return (
           <button
             key={opt} type="button" onClick={() => onChange(opt)}
             className={[
-              'h-8 px-3 rounded-full text-xs uppercase tracking-widest font-medium transition',
+              'h-9 sm:h-8 px-3 rounded-xl sm:rounded-full text-xs uppercase tracking-widest font-medium transition',
               on ? 'bg-white/15 text-fg' : 'text-fg/50 hover:text-fg/80'
             ].join(' ')}
           >
