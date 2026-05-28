@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../lib/api.js';
-import { celebrateFromEvent } from '../lib/celebrate.js';
+import { celebrateFromEvent, celebrateShower } from '../lib/celebrate.js';
 
 export default function MemberCard({
   member,
@@ -57,9 +57,20 @@ export default function MemberCard({
     } else {
       popFor(`item:${item.id}`);
       const res = await api.checkRoutineItem(item.id, member.id);
-      // Routine just completed for the day → fire confetti + a heavier pop
+      // Routine just completed for the day → shower of confetti from the
+      // top half of the screen + a top-of-screen "X · Routine complete"
+      // banner via the global event listener in RoutineCompleteBanner.
       if (res?.awarded) {
-        celebrateFromEvent(evt, { color: member.color, emoji: '⭐' });
+        celebrateShower({ color: member.color });
+        window.dispatchEvent(new CustomEvent('fd:routine-complete', {
+          detail: {
+            member_name:   member.name,
+            member_color:  member.color,
+            member_emoji:  member.emoji,
+            routine_title: routine.routine_title,
+            points:        res.awarded.points
+          }
+        }));
       }
       // Streak award fired alongside the routine completion → bigger burst.
       if (res?.awards?.length) {

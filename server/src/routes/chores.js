@@ -56,12 +56,25 @@ router.get('/', (req, res) => {
 // completed them.
 router.get('/today', (_req, res) => {
   const dow = new Date().getDay();
+  const todayStart = startOfTodayISO();
+  const weekStart  = startOfWeekISO();
+
+  // Lazy daily archive: any once-chore with a completion older than the
+  // current day's start gets flipped to active=0 here. That's how "stays
+  // visible today, clears tomorrow" is enforced — completed-today rows
+  // have completed_at >= todayStart so they don't match.
+  db.prepare(`
+    UPDATE chores SET active = 0
+    WHERE active = 1 AND frequency = 'once' AND id IN (
+      SELECT DISTINCT chore_id FROM chore_completions
+      WHERE completed_at < ?
+    )
+  `).run(todayStart);
+
   const chores = db
     .prepare("SELECT * FROM chores WHERE active = 1 AND category = 'chore'")
     .all()
     .map(parseChore);
-  const todayStart = startOfTodayISO();
-  const weekStart  = startOfWeekISO();
 
   const todayKey = (cid, mid) => `${cid}:${mid}`;
   const todaySet = new Set(db
@@ -71,16 +84,10 @@ router.get('/today', (_req, res) => {
     .prepare('SELECT chore_id, member_id FROM chore_completions WHERE completed_at >= ?')
     .all(weekStart).map(c => todayKey(c.chore_id, c.member_id)));
 
-  // For 'once' chores, any completion in history hides them from everyone.
-  const onceCompleted = new Set(
-    db.prepare(`
-      SELECT DISTINCT chore_id FROM chore_completions
-      WHERE chore_id IN (SELECT id FROM chores WHERE frequency = 'once')
-    `).all().map(r => r.chore_id)
-  );
-
   const visible = chores.filter(c => {
-    if (c.frequency === 'once')   return !onceCompleted.has(c.id);
+    // Once-chores: any survivors past the lazy archive are still in their
+    // completion day (or never completed) — both should show on the kiosk.
+    if (c.frequency === 'once')   return true;
     if (c.frequency === 'daily')  return true;
     if (c.frequency === 'weekly') return true;
     if (c.frequency === 'custom') return Array.isArray(c.custom_days) && c.custom_days.includes(dow);
@@ -181,12 +188,9 @@ router.post('/:id/complete', (req, res) => {
     VALUES (?, ?, ?)
   `).run(choreId, memberId, chore.points || 0);
 
-  // Auto-archive one-time chores (`category='chore'` only — bonuses with
-  // frequency='once' have their own per-member completion semantics in
-  // /api/bonuses/today and shouldn't be globally archived here).
-  if (chore.category === 'chore' && chore.frequency === 'once') {
-    db.prepare('UPDATE chores SET active = 0 WHERE id = ?').run(choreId);
-  }
+  // One-time chores aren't archived immediately — they stay on the kiosk
+  // for the rest of the day with strike-through styling. The lazy archive
+  // at the top of /api/chores/today clears them once the next day starts.
 
   const awards = awardStreaksIfDue(memberId, { kind: 'chore', chore_id: choreId });
   res.status(201).json({

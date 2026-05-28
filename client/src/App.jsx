@@ -12,6 +12,7 @@ import ThemeToggle from './components/ThemeToggle.jsx';
 import DimOverlay from './components/DimOverlay.jsx';
 import CelebrationLayer from './components/CelebrationLayer.jsx';
 import PortalLayer from './components/PortalLayer.jsx';
+import RoutineCompleteBanner from './components/RoutineCompleteBanner.jsx';
 import ViewTabs from './components/ViewTabs.jsx';
 import StreaksPage from './components/StreaksPage.jsx';
 import MealsPage from './components/MealsPage.jsx';
@@ -125,6 +126,7 @@ export default function App() {
       <MessageOverlay messages={messages || []} />
       <CelebrationLayer />
       <PortalLayer />
+      <RoutineCompleteBanner />
 
       <DimOverlay
         active={isDim}
