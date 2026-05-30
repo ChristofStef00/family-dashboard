@@ -1,0 +1,21 @@
+{
+  "name": "family-dashboard-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server exposing the Family Dashboard (chores, points, calendar, rewards, messages) as tools for a local LLM via Open WebUI / mcpo.",
+  "bin": {
+    "family-dashboard-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node src/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,24 @@
+# Family Dashboard MCP server for Unraid (or any Docker host).
+#
+#   1. Copy .env.example to .env and fill in your values.
+#   2. docker compose up -d --build
+#   3. In Open WebUI → Settings → Tools, add an OpenAPI Tool server:
+#        URL:  http://<this-host-ip>:8000
+#        (the OpenAPI docs are served at http://<host>:8000/docs)
+#      If you set MCPO_API_KEY, add it as the tool server's Bearer/API key.
+services:
+  family-dashboard-mcp:
+    build: .
+    container_name: family-dashboard-mcp
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      # URL of the dashboard server (the Pi) as seen from THIS host. Use the
+      # Pi's LAN IP or hostname — not localhost.
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://family-pi.local:3000}
+      # Dashboard admin PIN — needed only for admin actions (create_chore).
+      ADMIN_PIN: ${ADMIN_PIN:-}
+      # Optional: require this key on tool-server requests from Open WebUI.
+      MCPO_API_KEY: ${MCPO_API_KEY:-}
+      PORT: "8000"
