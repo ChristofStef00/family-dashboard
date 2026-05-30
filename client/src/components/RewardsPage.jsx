@@ -107,6 +107,18 @@ function MemberRewardRow({ member, rewards, currentGoalId, onPick }) {
   const balance = member.points ?? 0;
   const maxCost = rewards.reduce((m, r) => Math.max(m, r.point_cost), 0);
   const fillPct = maxCost > 0 ? Math.min(100, (balance / maxCost) * 100) : 0;
+  const [picker, setPicker] = useState(null);   // group of same-cost rewards being chosen from
+
+  // Rewards arrive sorted by cost ascending, so identical costs are
+  // contiguous. Group by cost: a lone reward renders as a tappable flag;
+  // a group of 2+ collapses into ONE cluster marker that opens a picker —
+  // otherwise same-cost rewards stack on the exact same bar position and
+  // become unreadable / untappable.
+  const groups = new Map();   // point_cost -> [reward, ...]
+  rewards.forEach(r => {
+    if (!groups.has(r.point_cost)) groups.set(r.point_cost, []);
+    groups.get(r.point_cost).push(r);
+  });
 
   return (
     <div className="rounded-2xl bg-surface/[0.04] border border-surface/10 px-5 py-3">
@@ -150,27 +162,67 @@ function MemberRewardRow({ member, rewards, currentGoalId, onPick }) {
               }}
             />
 
-            {rewards.map(r => {
-              const pct = maxCost > 0 ? (r.point_cost / maxCost) * 100 : 0;
-              const affordable = balance >= r.point_cost;
-              const isGoal     = currentGoalId === r.id;
+            {[...groups.entries()].map(([cost, group]) => {
+              const pct = maxCost > 0 ? (cost / maxCost) * 100 : 0;
+              const affordable = balance >= cost;
+              if (group.length === 1) {
+                const r = group[0];
+                return (
+                  <RewardFlag
+                    key={r.id}
+                    reward={r}
+                    pct={pct}
+                    color={member.color}
+                    affordable={affordable}
+                    isGoal={currentGoalId === r.id}
+                    onClick={(e) => onPick(r, member, e)}
+                  />
+                );
+              }
               return (
-                <RewardFlag
-                  key={r.id}
-                  reward={r}
+                <RewardCluster
+                  key={`cluster-${cost}`}
+                  rewards={group}
                   pct={pct}
                   color={member.color}
                   affordable={affordable}
-                  isGoal={isGoal}
-                  onClick={(e) => onPick(r, member, e)}
+                  currentGoalId={currentGoalId}
+                  onClick={() => setPicker(group)}
                 />
               );
             })}
           </div>
         </div>
       )}
+
+      {picker && (
+        <RewardPickerModal
+          member={member}
+          rewards={picker}
+          currentGoalId={currentGoalId}
+          onPick={onPick}
+          onClose={() => setPicker(null)}
+        />
+      )}
     </div>
   );
+}
+
+/* ───── Shared disc styling (affordable vs out-of-reach) ─────────────── */
+
+function discStyle(affordable, color) {
+  return affordable
+    ? {
+        backgroundColor: color,
+        color: '#0f0f13',
+        border: `3px solid ${color}`,
+        boxShadow: `0 0 22px ${color}cc`
+      }
+    : {
+        backgroundColor: 'rgba(20, 20, 26, 0.85)',
+        color: 'rgba(255,255,255,0.6)',
+        border: `3px solid rgba(255,255,255,0.22)`
+      };
 }
 
 /* ───── A single reward flag positioned along the bar ────────────────── */
@@ -201,24 +253,130 @@ function RewardFlag({ reward, pct, color, affordable, isGoal, onClick }) {
 
       <span
         className="h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold tabular-nums shadow-md transition"
-        style={
-          affordable
-            ? {
-                backgroundColor: color,
-                color: '#0f0f13',
-                border: `3px solid ${color}`,
-                boxShadow: `0 0 22px ${color}cc`
-              }
-            : {
-                backgroundColor: 'rgba(20, 20, 26, 0.85)',
-                color: 'rgba(255,255,255,0.6)',
-                border: `3px solid rgba(255,255,255,0.22)`
-              }
-        }
+        style={discStyle(affordable, color)}
       >
         {reward.point_cost}
       </span>
     </button>
+  );
+}
+
+/* ───── A cluster marker: one disc standing in for several same-cost ──── */
+/* rewards. Tapping it opens the picker to choose which to save toward.   */
+
+function RewardCluster({ rewards, pct, color, affordable, currentGoalId, onClick }) {
+  const goal = rewards.find(r => r.id === currentGoalId) || null;
+  const cost = rewards[0]?.point_cost ?? 0;
+  return (
+    <button
+      onClick={onClick}
+      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 group active:scale-95 transition flex flex-col items-center"
+      style={{ left: `${pct}%` }}
+      title={`${rewards.length} rewards at ${cost} pts — tap to choose`}
+    >
+      <span className="absolute bottom-full mb-2 text-center flex flex-col items-center w-[180px]">
+        <span
+          className={[
+            'text-sm font-medium leading-tight break-words px-1',
+            affordable ? 'text-fg/95' : 'text-fg/55'
+          ].join(' ')}
+        >
+          {goal ? goal.title : `${rewards.length} rewards`}
+        </span>
+        {goal && (
+          <span className="mem-text text-[10px] uppercase tracking-widest font-semibold mt-0.5" style={{ '--mem-color': color }}>
+            ★ saving
+          </span>
+        )}
+      </span>
+
+      <span className="relative">
+        <span
+          className="h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold tabular-nums shadow-md transition"
+          style={discStyle(affordable, color)}
+        >
+          {cost}
+        </span>
+        {/* Count badge — signals the disc hides several rewards. */}
+        <span
+          className="absolute -top-1 -right-1 h-6 min-w-6 px-1.5 rounded-full flex items-center justify-center text-xs font-bold tabular-nums shadow"
+          style={{ backgroundColor: color, color: '#0f0f13', border: '2px solid rgba(15,15,19,0.65)' }}
+        >
+          {rewards.length}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/* ───── Picker: choose which same-cost reward to save toward ─────────── */
+
+function RewardPickerModal({ member, rewards, currentGoalId, onPick, onClose }) {
+  const cost = rewards[0]?.point_cost ?? 0;
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="card-pad max-w-md w-full flex flex-col gap-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3">
+          <span
+            className="h-14 w-14 rounded-full flex items-center justify-center text-3xl shrink-0"
+            style={{
+              backgroundColor: `${member.color}33`,
+              border: `1px solid ${member.color}66`
+            }}
+          >
+            {member.emoji}
+          </span>
+          <div className="min-w-0">
+            <div className="mem-text font-medium text-xl leading-tight" style={{ '--mem-color': member.color }}>
+              {member.name}
+            </div>
+            <div className="text-fg/65 text-base mt-0.5 tabular-nums">{cost} pts</div>
+          </div>
+        </div>
+
+        <h3 className="text-3xl font-light tracking-tight">Choose a reward to save toward</h3>
+
+        <ul className="flex flex-col gap-2">
+          {rewards.map(r => {
+            const isGoal = currentGoalId === r.id;
+            return (
+              <li key={r.id}>
+                <button
+                  onClick={(e) => { onPick(r, member, e); onClose(); }}
+                  className="w-full text-left rounded-2xl px-4 py-3.5 flex items-center justify-between gap-3 border transition active:scale-[0.98] hover:brightness-110"
+                  style={{
+                    backgroundColor: isGoal ? `${member.color}22` : 'rgba(255,255,255,0.04)',
+                    borderColor: isGoal ? `${member.color}aa` : 'rgba(255,255,255,0.10)'
+                  }}
+                >
+                  <span className="min-w-0 font-medium text-lg break-words">{r.title}</span>
+                  {isGoal && (
+                    <span className="mem-text text-xs uppercase tracking-widest font-semibold shrink-0" style={{ '--mem-color': member.color }}>
+                      ★ saving
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="flex justify-end pt-1">
+          <button
+            onClick={onClose}
+            className="rounded-full px-6 py-2.5 text-fg/70 hover:text-fg hover:bg-surface/[0.06] text-sm font-medium uppercase tracking-widest transition"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
