@@ -35,8 +35,25 @@
 const PARSE_OPTS = {
   className: 'twemoji',
   callback: (icon /*, options */) => {
-    // `icon` is the lowercase hex codepoint(s) joined by "-".
-    return `https://api.iconify.design/fluent-emoji-flat:${icon}.svg`;
+    // `icon` is the lowercase hex codepoint(s) joined by "-". Twemoji's
+    // normalization doesn't match Iconify's fluent-emoji-flat alias scheme
+    // in two cases, both of which 404 → a flashing broken-image icon:
+    //
+    //   1. ZWJ sequences keep the VS16 selector (e.g. the rainbow flag
+    //      "1f3f3-fe0f-200d-1f308" or 👨‍⚕️ "1f468-200d-2695-fe0f"), but
+    //      Iconify's aliases omit "fe0f".
+    //   2. Keycaps drop leading zeros ("23-20e3" for #️⃣), but Iconify
+    //      expects the base codepoint zero-padded to 4 hex digits
+    //      ("0023-20e3").
+    //
+    // Normalize: drop every "fe0f" segment and zero-pad each remaining
+    // segment to a minimum of 4 hex digits.
+    const name = icon
+      .split('-')
+      .filter(seg => seg !== 'fe0f')
+      .map(seg => seg.padStart(4, '0'))
+      .join('-');
+    return `https://api.iconify.design/fluent-emoji-flat:${name}.svg`;
   }
 };
 

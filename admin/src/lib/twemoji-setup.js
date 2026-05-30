@@ -26,7 +26,18 @@
 const PARSE_OPTS = {
   className: 'twemoji',
   callback: (icon /*, options */) => {
-    return `https://api.iconify.design/fluent-emoji-flat:${icon}.svg`;
+    // Normalize Twemoji's codepoint string to match Iconify's
+    // fluent-emoji-flat aliases: drop "fe0f" (VS16) segments — kept by
+    // Twemoji on ZWJ sequences but omitted by Iconify — and zero-pad each
+    // segment to 4 hex digits (keycaps like "23-20e3" → "0023-20e3").
+    // Without this, those URLs 404 and flash a broken-image icon.
+    // See client/src/lib/twemoji-setup.js for the full rationale.
+    const name = icon
+      .split('-')
+      .filter(seg => seg !== 'fe0f')
+      .map(seg => seg.padStart(4, '0'))
+      .join('-');
+    return `https://api.iconify.design/fluent-emoji-flat:${name}.svg`;
   }
 };
 
