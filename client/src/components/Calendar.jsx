@@ -320,7 +320,7 @@ function MonthGrid({ ref_, today, eventsByDay, mealsByDay, timeOpts = {} }) {
           <div key={i} className="text-center text-fg/40 text-sm uppercase tracking-widest font-medium">{w}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1.5 flex-1">
+      <div className="grid grid-cols-7 grid-rows-6 gap-1.5 flex-1 min-h-0">
         {grid.map((d, i) => {
           const inMonth = d.getMonth() === month;
           const isToday = sameDay(d, today);
@@ -330,7 +330,7 @@ function MonthGrid({ ref_, today, eventsByDay, mealsByDay, timeOpts = {} }) {
             <div
               key={i}
               className={[
-                'rounded-xl p-2 flex flex-col gap-1 min-h-0',
+                'rounded-xl p-2 flex flex-col gap-1 min-h-0 overflow-hidden',
                 inMonth ? 'bg-surface/[0.025]' : 'opacity-30',
                 isToday ? 'ring-1 ring-surface/40 bg-surface/10' : ''
               ].join(' ')}
@@ -338,7 +338,7 @@ function MonthGrid({ ref_, today, eventsByDay, mealsByDay, timeOpts = {} }) {
               <div className={['text-base font-medium tabular-nums', isToday ? 'text-fg' : 'text-fg/70'].join(' ')}>
                 {d.getDate()}
               </div>
-              <div className="flex flex-col gap-1 overflow-hidden">
+              <div className="flex flex-col gap-1 overflow-hidden min-h-0">
                 {dayMeals.map(m => (
                   <div
                     key={m.id}
