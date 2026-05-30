@@ -1,20 +1,46 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
-const FREQUENCIES = ['daily', 'weekly', 'custom', 'once'];
-const CATEGORIES  = ['chore', 'bonus'];
-const CLAIM_MODES = ['multi', 'single'];
+// Bonuses keep the full vocabulary; chores use only Once / Custom (where
+// Custom is driven by a repeat preset → custom_days).
+const FREQUENCIES    = ['daily', 'weekly', 'custom', 'once'];
+const CHORE_FREQS    = ['once', 'custom'];
+const REPEAT_PRESETS = ['daily', 'weekdays', 'weekly'];
+const CATEGORIES     = ['chore', 'bonus'];
+const CLAIM_MODES    = ['multi', 'single'];
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+const WEEKDAYS  = [1, 2, 3, 4, 5];
 
-// Human-readable frequency for the list rows. Custom days show as the
-// actual weekdays picked (e.g. "Mon, Wed, Fri") so admins don't have to
-// open an Edit form to see the schedule.
+function sameDays(days, preset) {
+  if (!Array.isArray(days)) return false;
+  const a = [...days].sort((x, y) => x - y).join(',');
+  return a === preset.join(',');
+}
+
+// Map a chore's stored custom_days back onto a repeat preset for the editor.
+function deriveRepeat(chore) {
+  const days = chore?.custom_days;
+  if (sameDays(days, EVERY_DAY)) return 'daily';
+  if (sameDays(days, WEEKDAYS))  return 'weekdays';
+  return 'weekly';
+}
+
+// Human-readable frequency for the list rows. Custom chores collapse the two
+// common presets back to "daily" / "weekdays"; everything else shows the
+// actual weekdays picked (e.g. "Mon, Wed, Fri") so admins don't have to open
+// an Edit form to see the schedule.
 function formatFrequency(c) {
-  if (c.frequency === 'custom' && Array.isArray(c.custom_days) && c.custom_days.length > 0) {
-    return c.custom_days.slice().sort((a, b) => a - b).map(d => DAY_NAMES[d]).join(', ');
-  }
   if (c.frequency === 'once') return 'one-time';
+  if (c.frequency === 'custom' && Array.isArray(c.custom_days)) {
+    if (sameDays(c.custom_days, EVERY_DAY)) return 'daily';
+    if (sameDays(c.custom_days, WEEKDAYS))  return 'weekdays';
+    if (c.custom_days.length > 0) {
+      return c.custom_days.slice().sort((a, b) => a - b).map(d => DAY_NAMES[d]).join(', ');
+    }
+    return 'no days set';
+  }
   return c.frequency;
 }
 
@@ -142,7 +168,11 @@ export default function ChorePanel() {
 function ChoreForm({ chore, members, onSave, onCancel }) {
   const [title,       setTitle]       = useState(chore?.title || '');
   const [points,      setPoints]      = useState(chore?.points ?? 5);
-  const [frequency,   setFrequency]   = useState(chore?.frequency || 'daily');
+  // For chores, frequency is only 'once' | 'custom'. Brand-new chores default
+  // to a recurring "custom" chore that runs every day.
+  const [frequency,   setFrequency]   = useState(chore?.frequency || 'custom');
+  // Chore-only: which repeat preset the Custom schedule uses.
+  const [repeat,      setRepeat]      = useState(deriveRepeat(chore));
   const [customDays,  setCustomDays]  = useState(chore?.custom_days || []);
   const [assigneeIds, setAssigneeIds] = useState(chore?.assignee_ids || []);
   const [category,    setCategory]    = useState(chore?.category || 'chore');
@@ -155,6 +185,23 @@ function ChoreForm({ chore, members, onSave, onCancel }) {
   function toggleAssignee(id) {
     setAssigneeIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
+
+  const isChore = category === 'chore';
+  // Chore "Custom" frequency Pills collapse legacy daily/weekly to 'custom'.
+  const choreFreq = frequency === 'once' ? 'once' : 'custom';
+  // Resolve the final custom_days the chore/bonus will be saved with.
+  function resolvedDays() {
+    if (isChore) {
+      if (choreFreq === 'once') return null;
+      if (repeat === 'daily')    return EVERY_DAY;
+      if (repeat === 'weekdays') return WEEKDAYS;
+      return customDays;                       // weekly → explicit day picker
+    }
+    return frequency === 'custom' ? customDays : null;
+  }
+  // A weekly chore with no days chosen would never appear on the kiosk.
+  const needsDays = isChore && choreFreq === 'custom' && repeat === 'weekly';
+  const missingDays = needsDays && customDays.length === 0;
 
   return (
     <div className="rounded-2xl bg-white/[0.06] border border-white/15 p-4 flex flex-col gap-4">
@@ -178,31 +225,55 @@ function ChoreForm({ chore, members, onSave, onCancel }) {
         </Field>
       </div>
 
-      <Field label="Frequency">
-        <Pills options={FREQUENCIES} value={frequency} onChange={setFrequency} />
-      </Field>
+      {/* Chores: Once | Custom. Bonuses keep the full vocabulary. */}
+      {isChore ? (
+        <>
+          <Field
+            label="Frequency"
+            hint={choreFreq === 'once'
+              ? 'A one-time chore. It clears from the dashboard the day after it’s completed.'
+              : 'A recurring chore. Choose how often below.'}
+          >
+            <Pills
+              options={CHORE_FREQS}
+              value={choreFreq}
+              onChange={v => setFrequency(v === 'once' ? 'once' : 'custom')}
+            />
+          </Field>
 
-      {frequency === 'custom' && (
-        <Field
-          label="Days"
-          hint="Pick the days of the week this chore is due. The kiosk will only show it (and the streak engine only count it) on those days."
-        >
-          <div className="flex gap-1">
-            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((label, i) => (
-              <button
-                key={i} type="button" onClick={() => toggleDay(i)}
-                className={[
-                  'h-8 w-10 rounded-full text-xs uppercase tracking-widest font-medium transition',
-                  customDays.includes(i)
-                    ? 'bg-white/15 text-fg'
-                    : 'bg-white/[0.04] text-fg/50 hover:text-fg/80'
-                ].join(' ')}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </Field>
+          {choreFreq === 'custom' && (
+            <Field label="Repeats">
+              <Pills options={REPEAT_PRESETS} value={repeat} onChange={setRepeat} />
+            </Field>
+          )}
+
+          {choreFreq === 'custom' && repeat === 'weekly' && (
+            <Field
+              label="Days"
+              hint="Pick the day(s) it repeats on. The kiosk shows it (and the streak engine counts it) only on those days."
+            >
+              <DayPicker selected={customDays} onToggle={toggleDay} />
+              {missingDays && (
+                <div className="text-rose-300 text-xs mt-1.5">Pick at least one day.</div>
+              )}
+            </Field>
+          )}
+        </>
+      ) : (
+        <>
+          <Field label="Frequency">
+            <Pills options={FREQUENCIES} value={frequency} onChange={setFrequency} />
+          </Field>
+
+          {frequency === 'custom' && (
+            <Field
+              label="Days"
+              hint="Pick the days of the week this bonus is available."
+            >
+              <DayPicker selected={customDays} onToggle={toggleDay} />
+            </Field>
+          )}
+        </>
       )}
 
       {category === 'chore' && (
@@ -262,19 +333,40 @@ function ChoreForm({ chore, members, onSave, onCancel }) {
         </button>
         <button
           onClick={() => onSave({
-            title, points, frequency,
-            custom_days: frequency === 'custom' ? customDays : null,
+            title, points,
+            frequency: isChore ? choreFreq : frequency,
+            custom_days: resolvedDays(),
             assignee_ids: category === 'chore' ? assigneeIds : [],
             category,
             claim_mode: category === 'bonus' ? claimMode : 'multi',
             active
           })}
-          disabled={!title.trim()}
+          disabled={!title.trim() || missingDays}
           className="rounded-full px-4 py-2 bg-white/15 hover:bg-white/25 active:scale-95 disabled:opacity-40 text-sm font-medium transition"
         >
           Save
         </button>
       </div>
+    </div>
+  );
+}
+
+function DayPicker({ selected, onToggle }) {
+  return (
+    <div className="flex gap-1">
+      {DAY_NAMES.map((label, i) => (
+        <button
+          key={i} type="button" onClick={() => onToggle(i)}
+          className={[
+            'h-8 w-10 rounded-full text-xs uppercase tracking-widest font-medium transition',
+            selected.includes(i)
+              ? 'bg-white/15 text-fg'
+              : 'bg-white/[0.04] text-fg/50 hover:text-fg/80'
+          ].join(' ')}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

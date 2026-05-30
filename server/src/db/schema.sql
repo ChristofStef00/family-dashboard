@@ -75,8 +75,10 @@ CREATE TABLE IF NOT EXISTS chores (
   title         TEXT    NOT NULL,
   description   TEXT,
   assignee_ids  TEXT    NOT NULL DEFAULT '[]',  -- JSON array of member ids
-  frequency     TEXT    NOT NULL DEFAULT 'daily', -- daily | weekly | custom
-  custom_days   TEXT,                              -- JSON array 0-6 (Sun-Sat) for custom
+  -- Chores: 'once' | 'custom' (custom_days lists the weekdays it recurs on).
+  -- Bonuses (category='bonus') still use daily | weekly | custom | once.
+  frequency     TEXT    NOT NULL DEFAULT 'custom', -- chore: once | custom · bonus: daily | weekly | custom | once
+  custom_days   TEXT,                              -- JSON array 0-6 (Sun-Sat); for custom chores: daily=[0..6], weekdays=[1..5]
   points        INTEGER NOT NULL DEFAULT 0,
   active        INTEGER NOT NULL DEFAULT 1,
   created_at    TEXT    NOT NULL DEFAULT (datetime('now'))

@@ -21,19 +21,21 @@ const tx = db.transaction(() => {
   const choreCount = db.prepare('SELECT COUNT(*) AS n FROM chores').get().n;
   if (choreCount === 0) {
     const insertChore = db.prepare(
-      'INSERT INTO chores (title, assignee_ids, frequency, points, category) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO chores (title, assignee_ids, frequency, custom_days, points, category) VALUES (?, ?, ?, ?, ?, ?)'
     );
     const ids = db.prepare('SELECT id FROM family_members ORDER BY sort_order').all().map(r => r.id);
     const all = JSON.stringify(ids);
     const kids = JSON.stringify(ids.slice(2));
-    // Regular chores
-    insertChore.run('Make the bed',         kids, 'daily',  5,  'chore');
-    insertChore.run('Empty dishwasher',     all,  'daily', 10, 'chore');
-    insertChore.run('Take out trash',       JSON.stringify([ids[1]]), 'weekly', 15, 'chore');
-    // Available bonuses (kids opt-in via the Points page)
-    insertChore.run('Vacuum living room',   all,  'weekly', 25, 'bonus');
-    insertChore.run('Caught being kind',    all,  'daily',  25, 'bonus');
-    insertChore.run('Helped without being asked', all, 'daily', 30, 'bonus');
+    const EVERY_DAY = JSON.stringify([0, 1, 2, 3, 4, 5, 6]);
+    // Regular chores — 'custom' frequency with custom_days driving which
+    // weekdays they appear. Daily = every day; weekly = a single chosen day.
+    insertChore.run('Make the bed',         kids, 'custom', EVERY_DAY, 5,  'chore');
+    insertChore.run('Empty dishwasher',     all,  'custom', EVERY_DAY, 10, 'chore');
+    insertChore.run('Take out trash',       JSON.stringify([ids[1]]), 'custom', JSON.stringify([1]), 15, 'chore'); // Mondays
+    // Available bonuses (kids opt-in via the Points page) — keep daily/weekly.
+    insertChore.run('Vacuum living room',   all,  'weekly', null, 25, 'bonus');
+    insertChore.run('Caught being kind',    all,  'daily',  null, 25, 'bonus');
+    insertChore.run('Helped without being asked', all, 'daily', null, 30, 'bonus');
     console.log('✓ seeded chores (3 chores + 3 bonuses)');
   }
 

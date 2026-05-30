@@ -51,6 +51,9 @@ export function migrate() {
   // calendar_events + ics_subscriptions: make member_id nullable and add a
   // `color` column so "shared" calendars (no owner) can render correctly.
   migrateCalendarSharedCalendars();
+  // Chore frequency v2: chores now use only 'once' | 'custom' (with custom_days
+  // driving which weekdays they appear). Convert legacy daily/weekly chores.
+  migrateChoreFrequencyV2();
   // Indexes that depend on columns added by ensureColumn must be created here.
   db.exec('CREATE INDEX IF NOT EXISTS idx_recipe_cache_cookbook ON recipe_cache(cookbook_slug)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_chores_category       ON chores(category)');
@@ -241,6 +244,49 @@ function migrateCalendarSharedCalendars() {
       db.exec('ALTER TABLE ics_subscriptions ADD COLUMN color TEXT');
     }
   }
+}
+
+// Chores used to share the bonus frequency vocabulary (daily | weekly | custom
+// | once). They now use only two: 'once' (a one-off task) and 'custom' (recurs
+// on the weekdays listed in custom_days). This converts existing chore rows so
+// the admin UI and the /today visibility filter have a consistent model:
+//   - daily  → custom, custom_days = [0..6] (every day)
+//   - weekly → custom, custom_days = [<weekday it was created on>] (best guess;
+//              old weekly chores never recorded WHICH day, so we anchor to the
+//              created_at weekday and let the parent adjust it in the admin UI)
+// Bonuses (category='bonus') are left untouched — they keep daily/weekly/custom.
+// Idempotent: only rows still on the legacy 'daily'/'weekly' values are touched.
+function migrateChoreFrequencyV2() {
+  const cols = db.prepare('PRAGMA table_info(chores)').all();
+  if (cols.length === 0) return;            // fresh install
+  if (!cols.some(c => c.name === 'custom_days')) return; // older schema, schema.sql will add it
+
+  const legacy = db.prepare(`
+    SELECT id, frequency, custom_days, created_at
+    FROM chores
+    WHERE category = 'chore' AND frequency IN ('daily', 'weekly')
+  `).all();
+  if (legacy.length === 0) return;
+
+  const update = db.prepare(
+    "UPDATE chores SET frequency = 'custom', custom_days = ? WHERE id = ?"
+  );
+  const run = db.transaction((rows) => {
+    for (const row of rows) {
+      let days;
+      if (row.frequency === 'daily') {
+        days = [0, 1, 2, 3, 4, 5, 6];
+      } else {
+        // weekly → anchor to the weekday the chore was created on.
+        const d = new Date((row.created_at || '').replace(' ', 'T') + 'Z');
+        const dow = Number.isNaN(d.getDay()) ? 1 : d.getDay();
+        days = [dow];
+      }
+      update.run(JSON.stringify(days), row.id);
+    }
+  });
+  run(legacy);
+  console.log(`[migrate] chore frequency v2: converted ${legacy.length} legacy daily/weekly chore(s) to custom`);
 }
 
 migrate();

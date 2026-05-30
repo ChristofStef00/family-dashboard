@@ -85,13 +85,17 @@ router.get('/today', (_req, res) => {
     .all(weekStart).map(c => todayKey(c.chore_id, c.member_id)));
 
   const visible = chores.filter(c => {
+    // Chores use only 'once' | 'custom' (see migrateChoreFrequencyV2).
     // Once-chores: any survivors past the lazy archive are still in their
     // completion day (or never completed) — both should show on the kiosk.
     if (c.frequency === 'once')   return true;
-    if (c.frequency === 'daily')  return true;
-    if (c.frequency === 'weekly') return true;
+    // Custom: show only on the weekdays listed in custom_days. A chore with no
+    // days assigned never shows (this is what fixes "Clean basement" sitting on
+    // the dashboard every day — it now only appears on its scheduled days).
     if (c.frequency === 'custom') return Array.isArray(c.custom_days) && c.custom_days.includes(dow);
-    return true;
+    // Legacy fallback (pre-migration rows): daily shows, anything else hidden.
+    if (c.frequency === 'daily')  return true;
+    return false;
   });
 
   const result = visible.map(c => ({
@@ -107,7 +111,7 @@ router.get('/today', (_req, res) => {
 router.post('/', requireAdmin, (req, res) => {
   const {
     title, description = null,
-    assignee_ids = [], frequency = 'daily', custom_days = null,
+    assignee_ids = [], frequency = 'custom', custom_days = null,
     points = 0, active = true, category = 'chore',
     claim_mode = 'multi'
   } = req.body || {};
