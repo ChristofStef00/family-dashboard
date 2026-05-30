@@ -57,15 +57,33 @@ function fmtTimeCompact(d, opts = {}) {
   return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2, '0')}${ampm}`;
 }
 
+/**
+ * Date a calendar event belongs to.
+ *
+ * All-day events arrive as a date-only string ("2026-06-03"). `new Date()`
+ * treats that as UTC midnight, which renders on the *previous* calendar day
+ * in any timezone behind UTC (e.g. "Memorial Day" on May 25 showing May 24).
+ * Parse date-only / all-day values as a local calendar date so they land on
+ * the day the user actually picked. Timed events keep their full timestamp.
+ */
+function parseEventStart(e) {
+  const s = e.start_time;
+  if (typeof s === 'string' && (e.all_day || /^\d{4}-\d{2}-\d{2}$/.test(s))) {
+    const [y, mo, d] = s.slice(0, 10).split('-').map(Number);
+    if (y && mo && d) return new Date(y, mo - 1, d);
+  }
+  return new Date(s);
+}
+
 function buildEventMap(events) {
   const map = new Map();
   for (const e of events) {
-    const d = new Date(e.start_time);
+    const d = parseEventStart(e);
     const k = dayKey(d);
     if (!map.has(k)) map.set(k, []);
     map.get(k).push(e);
   }
-  for (const list of map.values()) list.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+  for (const list of map.values()) list.sort((a, b) => parseEventStart(a) - parseEventStart(b));
   return map;
 }
 
