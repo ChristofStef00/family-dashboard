@@ -35,6 +35,13 @@ html, body, #root {
   margin: 0;
 }
 
+/* Global type scale. All Tailwind text/spacing is rem-based, so bumping the
+   root font size enlarges the whole UI proportionally (default 16px → 19px,
+   ~+19%) for comfortable reading from across the room on the kiosk. */
+html {
+  font-size: 19px;
+}
+
 body {
   background: var(--bg-gradients), rgb(var(--bg-rgb));
   color: rgb(var(--fg-rgb));

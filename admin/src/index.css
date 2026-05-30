@@ -4,6 +4,9 @@
 
 :root { color-scheme: dark; }
 html, body, #root { height: 100%; margin: 0; }
+/* Match the dashboard's global type scale (default 16px → 19px, ~+19%).
+   All Tailwind sizing is rem-based, so this enlarges the admin UI uniformly. */
+html { font-size: 19px; }
 body {
   background: #0f0f13;
   color: #f0f0f5;
