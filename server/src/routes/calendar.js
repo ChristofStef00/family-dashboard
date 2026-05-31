@@ -296,6 +296,19 @@ router.post('/sync', requireAdmin, async (_req, res) => {
   }
 });
 
+// Turn a raw Google/OAuth error into a short, actionable message. `invalid_grant`
+// means the stored refresh token was rejected (revoked, or — most commonly —
+// expired because the OAuth app is still in "Testing" mode, where Google expires
+// refresh tokens after 7 days). The user fixes it by clicking Connect to re-auth.
+function friendlyCalendarError(e) {
+  const raw = e?.errors?.[0]?.message || e?.response?.data?.error?.message
+    || e?.response?.data?.error || e.message || String(e);
+  if (typeof raw === 'string' && raw.includes('invalid_grant')) {
+    return 'Authorization expired — click Connect to reconnect this account';
+  }
+  return raw;
+}
+
 export async function syncAllCalendars() {
   if (!process.env.GOOGLE_CLIENT_ID) {
     return { skipped: true, reason: 'Google OAuth not configured' };
@@ -361,7 +374,7 @@ export async function syncAllCalendars() {
           tx();
           summary.calendars++;
         } catch (e) {
-          const msg = e?.errors?.[0]?.message || e?.response?.data?.error?.message || e.message;
+          const msg = friendlyCalendarError(e);
           console.error(`[calendar sync] ${t.email || `token#${t.id}`} / calendar "${calendarId}": ${msg}`);
           summary.errors.push({ token_id: t.id, email: t.email, calendar_id: calendarId, error: msg });
         }
@@ -371,7 +384,7 @@ export async function syncAllCalendars() {
       persistRefreshedCreds(client, t.id);
       summary.synced++;
     } catch (e) {
-      const msg = e?.errors?.[0]?.message || e?.response?.data?.error?.message || e.message;
+      const msg = friendlyCalendarError(e);
       console.error(`[calendar sync] ${t.email || `token#${t.id}`}: ${msg}`);
       summary.errors.push({ token_id: t.id, email: t.email, error: msg });
     }
