@@ -10,12 +10,23 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email'
 ];
 
-function oauthClient() {
+function oauthClient(redirectUri) {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/calendar/oauth/callback'
+    redirectUri || process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/calendar/oauth/callback'
   );
+}
+
+// The OAuth redirect must come back to *this* server at the same host the admin
+// reached it on (the admin UI is served by this server, so it's same-origin).
+// Hardcoding localhost breaks when the admin is opened from another device.
+// An explicit GOOGLE_REDIRECT_URI still wins if set (e.g. behind a proxy).
+function redirectUriFromReq(req) {
+  if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  return `${proto}://${host}/api/calendar/oauth/callback`;
 }
 
 function authedClientForToken(t) {
@@ -159,7 +170,7 @@ router.get('/oauth/start', requireAdmin, (req, res) => {
   if (!shared && !memberId) return res.status(400).json({ error: 'member_id or shared=1 required' });
   const color = shared ? (req.query.color || '#9ca3af') : null;
 
-  const url = oauthClient().generateAuthUrl({
+  const url = oauthClient(redirectUriFromReq(req)).generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
     scope: SCOPES,
@@ -173,7 +184,7 @@ router.get('/oauth/callback', async (req, res) => {
     const { code, state } = req.query;
     if (!code || !state) return res.status(400).send('Missing code/state');
     const { memberId, color } = decodeState(state);
-    const client = oauthClient();
+    const client = oauthClient(redirectUriFromReq(req));
     const { tokens } = await client.getToken(String(code));
     client.setCredentials(tokens);
 
