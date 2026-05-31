@@ -361,7 +361,9 @@ export async function syncAllCalendars() {
           tx();
           summary.calendars++;
         } catch (e) {
-          summary.errors.push({ token_id: t.id, calendar_id: calendarId, error: e.message });
+          const msg = e?.errors?.[0]?.message || e?.response?.data?.error?.message || e.message;
+          console.error(`[calendar sync] ${t.email || `token#${t.id}`} / calendar "${calendarId}": ${msg}`);
+          summary.errors.push({ token_id: t.id, email: t.email, calendar_id: calendarId, error: msg });
         }
       }
 
@@ -369,7 +371,9 @@ export async function syncAllCalendars() {
       persistRefreshedCreds(client, t.id);
       summary.synced++;
     } catch (e) {
-      summary.errors.push({ token_id: t.id, error: e.message });
+      const msg = e?.errors?.[0]?.message || e?.response?.data?.error?.message || e.message;
+      console.error(`[calendar sync] ${t.email || `token#${t.id}`}: ${msg}`);
+      summary.errors.push({ token_id: t.id, email: t.email, error: msg });
     }
   }
   summary.last_sync = new Date().toISOString();

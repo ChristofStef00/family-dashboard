@@ -111,9 +111,24 @@ export default function CalendarSetup() {
       {error && <div className="rounded-2xl bg-rose-500/15 border border-rose-500/30 px-4 py-3 text-rose-200 text-sm">{error}</div>}
 
       {syncResult && (
-        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/25 px-4 py-3 text-emerald-200 text-sm">
-          Synced {syncResult.synced} account{syncResult.synced === 1 ? '' : 's'}
-          {syncResult.errors?.length ? ` · ${syncResult.errors.length} error(s)` : ''}
+        <div className="flex flex-col gap-2">
+          <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/25 px-4 py-3 text-emerald-200 text-sm">
+            Synced {syncResult.synced} account{syncResult.synced === 1 ? '' : 's'}
+            {syncResult.errors?.length ? ` · ${syncResult.errors.length} error(s)` : ''}
+          </div>
+          {syncResult.errors?.length > 0 && (
+            <ul className="rounded-2xl bg-rose-500/10 border border-rose-500/25 px-4 py-3 text-rose-200 text-sm flex flex-col gap-1.5">
+              {syncResult.errors.map((err, i) => (
+                <li key={i} className="flex flex-col">
+                  <span className="font-medium">
+                    {err.email || `token#${err.token_id}`}
+                    {err.calendar_id ? ` / ${err.calendar_id}` : ''}
+                  </span>
+                  <span className="text-rose-300/80 break-words">{err.error}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
