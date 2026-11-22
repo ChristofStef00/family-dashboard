@@ -81,7 +81,10 @@ function BonusesPanel({ bonuses, members, onSelect }) {
   });
 
   return (
-    <section className="card-pad flex flex-col min-h-0 overflow-hidden">
+    // h-full matters: without it this section sizes to its content and spills
+    // past the viewport, and since <body> is overflow-hidden the overflow is
+    // unreachable — later bonus cards and their claim buttons become dead.
+    <section className="card-pad h-full flex flex-col min-h-0 overflow-hidden">
       <header className="flex items-baseline justify-between mb-4 shrink-0">
         <h2 className="text-2xl font-light tracking-tight">Bonuses</h2>
         <span className="stat-label">tap a member to claim</span>

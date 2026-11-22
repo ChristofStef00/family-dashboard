@@ -18,8 +18,11 @@ import StreaksPage from './components/StreaksPage.jsx';
 import MealsPage from './components/MealsPage.jsx';
 import PointsPage from './components/PointsPage.jsx';
 import RewardsPage from './components/RewardsPage.jsx';
+import HAFrame from './components/HAFrame.jsx';
+import HAToggleButton from './components/HAToggleButton.jsx';
 
 const VIEW_KEY = 'fd_view';
+const HA_MODE_KEY = 'fd_ha_mode';
 
 export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -31,6 +34,19 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* ignore */ }
   }, [view]);
+
+  // Smart-home mode covers the screen with the embedded HA dashboard.
+  const [haMode, setHaMode] = useState(() => {
+    try { return localStorage.getItem(HA_MODE_KEY) === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(HA_MODE_KEY, haMode ? '1' : '0'); } catch { /* ignore */ }
+  }, [haMode]);
+
+  // Mount the iframe on first use and keep it mounted thereafter, so flipping
+  // back and forth is instant instead of reloading HA every time.
+  const [haMounted, setHaMounted] = useState(haMode);
+  useEffect(() => { if (haMode) setHaMounted(true); }, [haMode]);
 
   const CAL_VIEW_KEY = 'fd_cal_view';
   const [calendarView, setCalendarView] = useState(() => {
@@ -54,6 +70,7 @@ export default function App() {
   const tz = settings?.timezone;
   const clockFormat = settings?.clock_format ?? 12;
   const { mode, isDim, dimLevel, clockOnly, setMode, wake } = useTheme(settings);
+  const haUrl = settings?.ha_url || '';
 
   return (
     <div className="h-screen w-screen flex flex-col p-6 gap-4">
@@ -122,6 +139,31 @@ export default function App() {
       <footer className="flex justify-center">
         <ViewTabs view={view} onChange={setView} />
       </footer>
+
+      {/* Deliberately faint and out of the way in the top-left corner — see
+          HAToggleButton. Hidden entirely until an HA URL is configured. */}
+      {haUrl && !haMode && (
+        <HAToggleButton active={false} onToggle={() => setHaMode(true)} />
+      )}
+
+      {/* Smart-home mode is an opaque layer over the family dashboard rather
+          than a swap, so the dashboard underneath keeps its state. Mounted on
+          first use and kept mounted, so flipping back and forth is instant. */}
+      {haMounted && (
+        <div
+          className={haMode ? 'fixed inset-0 z-10 bg-bg' : 'hidden'}
+          aria-hidden={!haMode}
+        >
+          <HAFrame url={haUrl} />
+        </div>
+      )}
+
+      {/* The way back out, floating above the HA layer. Rendered even with no
+          URL configured so clearing it from the admin UI can't strand the
+          kiosk in HA mode. */}
+      {haMode && (
+        <HAToggleButton active floating onToggle={() => setHaMode(false)} />
+      )}
 
       <MessageOverlay messages={messages || []} />
       <CelebrationLayer />

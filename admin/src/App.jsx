@@ -3,6 +3,7 @@ import { getToken, clearToken } from './lib/auth.js';
 import Login from './components/Login.jsx';
 import CalendarSetup from './components/CalendarSetup.jsx';
 import MealieSettings from './components/MealieSettings.jsx';
+import HomeAssistantSettings from './components/HomeAssistantSettings.jsx';
 import MemberPanel from './components/MemberPanel.jsx';
 import RoutinePanel from './components/RoutinePanel.jsx';
 import ChorePanel from './components/ChorePanel.jsx';
@@ -25,7 +26,7 @@ const SECTIONS = [
   { id: 'spend',  label: 'Spend',  icon: '🎁',
     blurb: 'What points buy and what is waiting to be handed over.' },
   { id: 'setup',  label: 'Setup',  icon: '⚙️',
-    blurb: 'Location, calendar, and meal-plan integrations.' },
+    blurb: 'Location, calendar, meal-plan, and smart-home integrations.' },
   { id: 'activity', label: 'Activity', icon: '📜',
     blurb: 'Everything the kids have earned, spent, and unlocked, newest first.' }
 ];
@@ -195,6 +196,7 @@ export default function App() {
             <IcsCalendarPanel />
             <CalendarSetup />
             <MealieSettings />
+            <HomeAssistantSettings />
           </>
         )}
         {section === 'activity' && (
